@@ -8,15 +8,13 @@ export class Store<T> {
     this.state = initial;
   }
 
-  get(): T {
-    return this.state;
-  }
+  get = (): T => this.state;
 
-  set(next: T): void {
+  set = (next: T): void => {
     if (Object.is(next, this.state)) return;
     this.state = next;
     for (const l of this.listeners) l();
-  }
+  };
 
   subscribe = (listener: Listener): (() => void) => {
     this.listeners.add(listener);
