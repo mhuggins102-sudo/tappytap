@@ -1,6 +1,3 @@
-// Quick verification of scoring per the plan's automated sanity checks.
-// Run: node scripts/smoke-scoring.mjs (after `npm run build`)
-
 import { scoreRound } from '../src/lib/scoring.ts';
 
 function assert(cond, msg) {
@@ -23,6 +20,14 @@ const expected = [0, 0.5, 1.0];
 {
   const r = scoreRound(expected, expected.map((t) => t + 0.025));
   assert(r.judgmentCounts.perfect === 3, '+25ms taps → 3 perfect');
+  assert(r.totalScore < 100, `+25ms → totalScore <100 (got ${r.totalScore})`);
+  assert(r.totalScore >= 90, `+25ms → totalScore >=90 (got ${r.totalScore})`);
+}
+
+{
+  const r = scoreRound(expected, expected.map((t) => t + 0.005));
+  assert(r.totalScore >= 98, `+5ms → totalScore >=98 (got ${r.totalScore})`);
+  assert(r.totalScore < 100, `+5ms → totalScore <100 (got ${r.totalScore})`);
 }
 
 {
@@ -32,7 +37,7 @@ const expected = [0, 0.5, 1.0];
 
 {
   const r = scoreRound(expected, expected.map((t) => t + 0.08));
-  assert(r.judgmentCounts.ok === 3, '+80ms taps → 3 ok (exceeds great tier)');
+  assert(r.judgmentCounts.ok === 3, '+80ms taps → 3 ok');
 }
 
 {

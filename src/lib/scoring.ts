@@ -1,71 +1,84 @@
-import type { Judgment, RoundResult, TapResult } from '../patterns/types';
+import type { Judgment, JudgmentOrExtra, RoundResult, TapResult } from '../patterns/types';
 
 const WINDOW_MS = 150;
 const EXTRA_PENALTY = 20;
 
-interface Tier {
+interface TierRange {
   maxMs: number;
   judgment: Judgment;
-  points: number;
+  ptsHi: number;
+  ptsLo: number;
 }
 
-const TIERS: Tier[] = [
-  { maxMs: 30, judgment: 'perfect', points: 100 },
-  { maxMs: 60, judgment: 'great', points: 70 },
-  { maxMs: 120, judgment: 'ok', points: 40 },
+const TIERS: TierRange[] = [
+  { maxMs: 30, judgment: 'perfect', ptsHi: 100, ptsLo: 90 },
+  { maxMs: 60, judgment: 'great', ptsHi: 90, ptsLo: 75 },
+  { maxMs: 120, judgment: 'ok', ptsHi: 75, ptsLo: 50 },
 ];
 
 function judge(errorMs: number): { judgment: Judgment; points: number } {
   const abs = Math.abs(errorMs);
+  let prev = 0;
   for (const tier of TIERS) {
-    if (abs <= tier.maxMs) return { judgment: tier.judgment, points: tier.points };
+    if (abs <= tier.maxMs) {
+      const span = tier.maxMs - prev;
+      const t = span > 0 ? (abs - prev) / span : 0;
+      const points = tier.ptsHi - t * (tier.ptsHi - tier.ptsLo);
+      return { judgment: tier.judgment, points };
+    }
+    prev = tier.maxMs;
   }
   return { judgment: 'miss', points: 0 };
 }
 
-export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundResult {
-  const matched: Array<TapResult & { _order: number }> = [];
-  const usedExpected = new Set<number>();
-  const taps = [...tapsSec].sort((a, b) => a - b);
+export interface LiveMatch {
+  expectedIdx: number | null;
+  errorMs: number | null;
+  judgment: JudgmentOrExtra;
+  points: number;
+}
 
+export function matchTapLive(tap: number, expected: number[], used: Set<number>): LiveMatch {
+  let bestIdx = -1;
+  let bestDist = Infinity;
+  for (let i = 0; i < expected.length; i++) {
+    if (used.has(i)) continue;
+    const dist = Math.abs(tap - expected[i]);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestIdx = i;
+    }
+  }
   const windowSec = WINDOW_MS / 1000;
+  if (bestIdx >= 0 && bestDist <= windowSec) {
+    const errorMs = (tap - expected[bestIdx]) * 1000;
+    const { judgment, points } = judge(errorMs);
+    return { expectedIdx: bestIdx, errorMs, judgment, points };
+  }
+  return { expectedIdx: null, errorMs: null, judgment: 'extra', points: -EXTRA_PENALTY };
+}
+
+export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundResult {
+  const taps = [...tapsSec].sort((a, b) => a - b);
+  const used = new Set<number>();
+  const matched: Array<TapResult & { _order: number }> = [];
+  let rawScore = 0;
 
   for (const tap of taps) {
-    let bestIdx = -1;
-    let bestDist = Infinity;
-    for (let i = 0; i < expectedOnsets.length; i++) {
-      if (usedExpected.has(i)) continue;
-      const dist = Math.abs(tap - expectedOnsets[i]);
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestIdx = i;
-      }
-    }
-
-    if (bestIdx >= 0 && bestDist <= windowSec) {
-      const errorMs = (tap - expectedOnsets[bestIdx]) * 1000;
-      const { judgment } = judge(errorMs);
-      usedExpected.add(bestIdx);
-      matched.push({
-        _order: bestIdx,
-        expectedIdx: bestIdx,
-        tapTime: tap,
-        errorMs,
-        judgment,
-      });
-    } else {
-      matched.push({
-        _order: expectedOnsets.length + matched.length,
-        expectedIdx: null,
-        tapTime: tap,
-        errorMs: null,
-        judgment: 'extra',
-      });
-    }
+    const m = matchTapLive(tap, expectedOnsets, used);
+    if (m.expectedIdx !== null) used.add(m.expectedIdx);
+    rawScore += m.points;
+    matched.push({
+      _order: m.expectedIdx ?? expectedOnsets.length + matched.length,
+      expectedIdx: m.expectedIdx,
+      tapTime: tap,
+      errorMs: m.errorMs,
+      judgment: m.judgment,
+    });
   }
 
   for (let i = 0; i < expectedOnsets.length; i++) {
-    if (!usedExpected.has(i)) {
+    if (!used.has(i)) {
       matched.push({
         _order: i,
         expectedIdx: i,
@@ -86,15 +99,7 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
     miss: 0,
     extra: 0,
   };
-  let rawScore = 0;
-  for (const r of results) {
-    counts[r.judgment]++;
-    if (r.judgment === 'extra') {
-      rawScore -= EXTRA_PENALTY;
-    } else if (r.errorMs !== null) {
-      rawScore += judge(r.errorMs).points;
-    }
-  }
+  for (const r of results) counts[r.judgment]++;
 
   const maxScore = expectedOnsets.length * 100;
   const totalScore = maxScore > 0 ? Math.max(0, Math.round((rawScore / maxScore) * 100)) : 0;

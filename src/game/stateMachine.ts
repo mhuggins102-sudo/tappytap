@@ -1,6 +1,11 @@
-import type { Difficulty, Pattern, RoundResult } from '../patterns/types';
+import type { Difficulty, JudgmentOrExtra, Pattern, RoundResult } from '../patterns/types';
 
 export type Screen = 'start' | 'picker' | 'game' | 'score' | 'daily';
+
+export interface TapFlash {
+  judgment: JudgmentOrExtra;
+  at: number;
+}
 
 export type Phase =
   | { kind: 'idle' }
@@ -12,6 +17,7 @@ export type Phase =
       phaseStartedAt: number;
       echoStartTime: number | null;
       taps: number[];
+      lastFlash: TapFlash | null;
     }
   | { kind: 'scoring'; pattern: Pattern; result: RoundResult };
 

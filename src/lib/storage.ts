@@ -2,6 +2,7 @@ import type { Difficulty, RoundResult } from '../patterns/types';
 
 const HIGHSCORES_KEY = 'tappytap.highscores';
 const DAILY_KEY = 'tappytap.daily';
+const SETTINGS_KEY = 'tappytap.settings';
 const VERSION = 1;
 
 export interface DifficultyRecord {
@@ -71,4 +72,24 @@ export function loadDailyEntry(todayDateStr: string): DailyEntry | null {
 export function saveDailyEntry(entry: Omit<DailyEntry, 'v'>): void {
   const full: DailyEntry = { v: VERSION, ...entry };
   localStorage.setItem(DAILY_KEY, JSON.stringify(full));
+}
+
+export interface Settings {
+  v: number;
+  liveFeedback: boolean;
+}
+
+const DEFAULT_SETTINGS: Settings = { v: VERSION, liveFeedback: true };
+
+export function loadSettings(): Settings {
+  const parsed = safeParse<Partial<Settings>>(localStorage.getItem(SETTINGS_KEY));
+  if (!parsed || parsed.v !== VERSION) return { ...DEFAULT_SETTINGS };
+  return { ...DEFAULT_SETTINGS, ...parsed };
+}
+
+export function saveSettings(next: Partial<Omit<Settings, 'v'>>): Settings {
+  const current = loadSettings();
+  const merged: Settings = { ...current, ...next, v: VERSION };
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+  return merged;
 }

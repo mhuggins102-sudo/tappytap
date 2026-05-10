@@ -12,17 +12,7 @@ interface DifficultyConfig {
   syncopate: boolean;
 }
 
-const CONFIGS: Record<Difficulty, DifficultyConfig> = {
-  easy: {
-    bpm: 90,
-    beatsPerMeasure: 4,
-    measures: 1,
-    subdivision: 1,
-    minOnsets: 4,
-    maxOnsets: 4,
-    density: 1,
-    syncopate: false,
-  },
+const CONFIGS: Record<Exclude<Difficulty, 'easy'>, DifficultyConfig> = {
   medium: {
     bpm: 100,
     beatsPerMeasure: 4,
@@ -46,6 +36,48 @@ const CONFIGS: Record<Difficulty, DifficultyConfig> = {
 };
 
 export function generatePattern(difficulty: Difficulty, rng: Rng): Pattern {
+  if (difficulty === 'easy') return generateEasyPattern(rng);
+  return generateStandardPattern(difficulty, rng);
+}
+
+function generateEasyPattern(rng: Rng): Pattern {
+  const bpm = 100;
+  const subdivision = 2;
+  const motifBeats = 4;
+  const slotsPerMotif = motifBeats * subdivision;
+  const onsetsPerMotif = 4;
+  const repeats = 4 + Math.floor(rng() * 2);
+  const secPerSlot = 60 / bpm / subdivision;
+
+  const motif: boolean[] = new Array(slotsPerMotif).fill(false);
+  motif[0] = true;
+  let placed = 1;
+  const remainingSlots: number[] = [];
+  for (let i = 1; i < slotsPerMotif; i++) remainingSlots.push(i);
+
+  while (placed < onsetsPerMotif && remainingSlots.length > 0) {
+    const idx = Math.floor(rng() * remainingSlots.length);
+    const slot = remainingSlots.splice(idx, 1)[0];
+    motif[slot] = true;
+    placed++;
+  }
+
+  const onsets: number[] = [];
+  const downbeats: boolean[] = [];
+  for (let r = 0; r < repeats; r++) {
+    for (let i = 0; i < slotsPerMotif; i++) {
+      if (motif[i]) {
+        onsets.push((r * slotsPerMotif + i) * secPerSlot);
+        downbeats.push(false);
+      }
+    }
+  }
+
+  const durationSec = slotsPerMotif * repeats * secPerSlot;
+  return { bpm, onsets, downbeats, durationSec, difficulty: 'easy' };
+}
+
+function generateStandardPattern(difficulty: Exclude<Difficulty, 'easy'>, rng: Rng): Pattern {
   const cfg = CONFIGS[difficulty];
   const totalSlots = cfg.beatsPerMeasure * cfg.measures * cfg.subdivision;
   const secPerSlot = 60 / cfg.bpm / cfg.subdivision;
@@ -71,7 +103,6 @@ export function generatePattern(difficulty: Difficulty, rng: Rng): Pattern {
   }
 
   const durationSec = totalSlots * secPerSlot;
-
   return { bpm: cfg.bpm, onsets, downbeats, durationSec, difficulty };
 }
 

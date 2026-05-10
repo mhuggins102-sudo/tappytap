@@ -5,7 +5,7 @@ import { generatePattern } from '../patterns/generator';
 import { generateDailyPattern, todayUtcDateString } from '../patterns/daily';
 import type { Difficulty, Pattern } from '../patterns/types';
 import { rngFromRandom } from '../lib/rng';
-import { scoreRound, shareString } from '../lib/scoring';
+import { matchTapLive, scoreRound, shareString } from '../lib/scoring';
 import { recordRound, saveDailyEntry, loadDailyEntry } from '../lib/storage';
 import { startCapture } from './inputCapture';
 import { Store } from './store';
@@ -21,6 +21,7 @@ const FIRST_TAP_TIMEOUT_SEC = 3;
 let pendingTimers: number[] = [];
 let releaseCapture: (() => void) | null = null;
 let currentTaps: number[] = [];
+let matchedExpected: Set<number> = new Set();
 let finalizeTimer: number | null = null;
 let abortTimer: number | null = null;
 
@@ -140,6 +141,7 @@ function enterEchoPhase(
   echoStart: number,
 ): void {
   currentTaps = [];
+  matchedExpected = new Set();
 
   gameStore.set({
     ...gameStore.get(),
@@ -149,6 +151,7 @@ function enterEchoPhase(
       phaseStartedAt: echoStart,
       echoStartTime: null,
       taps: [],
+      lastFlash: null,
     },
   });
 
@@ -171,9 +174,15 @@ function enterEchoPhase(
         abortTimer = null;
       }
       currentTaps = [0];
+      matchedExpected = new Set([0]);
       gameStore.set({
         ...gameStore.get(),
-        phase: { ...phase, echoStartTime: audioTime, taps: [0] },
+        phase: {
+          ...phase,
+          echoStartTime: audioTime,
+          taps: [0],
+          lastFlash: { judgment: 'perfect', at: audioTime },
+        },
       });
 
       const finalizeMs = (pattern.durationSec + ECHO_TAIL_SEC) * 1000;
@@ -186,10 +195,16 @@ function enterEchoPhase(
     }
 
     const rel = audioTime - phase.echoStartTime;
+    const match = matchTapLive(rel, pattern.onsets, matchedExpected);
+    if (match.expectedIdx !== null) matchedExpected.add(match.expectedIdx);
     currentTaps.push(rel);
     gameStore.set({
       ...gameStore.get(),
-      phase: { ...phase, taps: [...currentTaps] },
+      phase: {
+        ...phase,
+        taps: [...currentTaps],
+        lastFlash: { judgment: match.judgment, at: audioTime },
+      },
     });
   });
 }

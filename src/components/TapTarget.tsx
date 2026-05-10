@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { handlePointerTap } from '../game/inputCapture';
 import { getEngine } from '../audio/audioContext';
 import type { Phase } from '../game/stateMachine';
+import type { JudgmentOrExtra } from '../patterns/types';
+import { loadSettings } from '../lib/storage';
 
 interface Props {
   phase: Phase;
@@ -9,11 +11,26 @@ interface Props {
 }
 
 const COUNTDOWN_LABELS = ['3', '2', '1', 'GO!'];
+const FLASH_DECAY_SEC = 0.3;
+
+const JUDGMENT_COLOR_VAR: Record<JudgmentOrExtra, string> = {
+  perfect: 'var(--perfect)',
+  great: 'var(--great)',
+  ok: 'var(--ok)',
+  miss: 'var(--miss)',
+  extra: 'var(--extra)',
+};
 
 export function TapTarget({ phase, disabled }: Props) {
   const ref = useRef<HTMLButtonElement | null>(null);
   const labelRef = useRef<HTMLSpanElement | null>(null);
+  const flashRef = useRef<HTMLSpanElement | null>(null);
   const lastLabelRef = useRef<string>('');
+  const liveFeedbackRef = useRef<boolean>(true);
+
+  useEffect(() => {
+    liveFeedbackRef.current = loadSettings().liveFeedback;
+  }, []);
 
   useEffect(() => {
     const el = ref.current;
@@ -37,6 +54,7 @@ export function TapTarget({ phase, disabled }: Props) {
       const eng = getEngine();
       const el = ref.current;
       const labelEl = labelRef.current;
+      const flashEl = flashRef.current;
       if (eng && el) {
         const now = eng.audioTimeNow();
         const intensity = computePulse(phase, now);
@@ -46,6 +64,12 @@ export function TapTarget({ phase, disabled }: Props) {
         if (labelEl && label !== lastLabelRef.current) {
           lastLabelRef.current = label;
           labelEl.textContent = label;
+        }
+
+        if (flashEl) {
+          const flashIntensity = liveFeedbackRef.current ? computeFlashIntensity(phase, now) : 0;
+          flashEl.style.setProperty('--flash-intensity', flashIntensity.toFixed(3));
+          flashEl.style.setProperty('--flash-color', currentFlashColor(phase));
         }
       }
       raf = requestAnimationFrame(tick);
@@ -66,6 +90,7 @@ export function TapTarget({ phase, disabled }: Props) {
       disabled={disabled}
     >
       <span className="tap-target__ring" />
+      <span ref={flashRef} className="tap-target__flash" />
       <span ref={labelRef} className="tap-target__label">{computeLabel(phase, 0)}</span>
     </button>
   );
@@ -108,4 +133,16 @@ function computePulse(phase: Phase, now: number): number {
     return 0;
   }
   return 0;
+}
+
+function computeFlashIntensity(phase: Phase, now: number): number {
+  if (phase.kind !== 'echoing' || !phase.lastFlash) return 0;
+  const dt = now - phase.lastFlash.at;
+  if (dt < 0) return 0;
+  return Math.max(0, 1 - dt / FLASH_DECAY_SEC);
+}
+
+function currentFlashColor(phase: Phase): string {
+  if (phase.kind !== 'echoing' || !phase.lastFlash) return 'transparent';
+  return JUDGMENT_COLOR_VAR[phase.lastFlash.judgment];
 }
