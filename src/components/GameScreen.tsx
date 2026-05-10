@@ -1,5 +1,5 @@
 import { TapTarget } from './TapTarget';
-import type { GameState } from '../game/stateMachine';
+import type { GameState, Phase } from '../game/stateMachine';
 
 interface Props {
   state: GameState;
@@ -7,26 +7,21 @@ interface Props {
 
 export function GameScreen({ state }: Props) {
   const phase = state.phase;
-  const subtitle = subtitleFor(phase.kind);
 
   return (
     <div className="screen screen--game">
       <div className="game-meta">
         <span className="game-meta__chip">{state.isDailyChallenge ? 'Daily' : state.difficulty}</span>
-        <span className="game-meta__phase">{subtitle}</span>
+        <span className="game-meta__phase">{subtitleFor(phase)}</span>
       </div>
       <TapTarget phase={phase} disabled={phase.kind !== 'echoing'} />
-      <div className="game-help">
-        {phase.kind === 'listening' && 'Listen carefully…'}
-        {phase.kind === 'echoing' && 'Tap the pattern you just heard.'}
-        {phase.kind === 'countdown' && 'Get ready…'}
-      </div>
+      <div className="game-help">{helpFor(phase)}</div>
     </div>
   );
 }
 
-function subtitleFor(kind: GameState['phase']['kind']): string {
-  switch (kind) {
+function subtitleFor(phase: Phase): string {
+  switch (phase.kind) {
     case 'idle':
       return '';
     case 'countdown':
@@ -34,8 +29,19 @@ function subtitleFor(kind: GameState['phase']['kind']): string {
     case 'listening':
       return 'Listening';
     case 'echoing':
-      return 'Echo';
+      return phase.echoStartTime === null ? 'Ready' : 'Echo';
     case 'scoring':
       return 'Scoring';
   }
+}
+
+function helpFor(phase: Phase): string {
+  if (phase.kind === 'listening') return 'Listen carefully…';
+  if (phase.kind === 'countdown') return 'Get ready…';
+  if (phase.kind === 'echoing') {
+    return phase.echoStartTime === null
+      ? 'Tap when you’re ready to start.'
+      : 'Tap the rest of the pattern.';
+  }
+  return '';
 }

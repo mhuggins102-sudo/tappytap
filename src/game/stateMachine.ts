@@ -4,9 +4,15 @@ export type Screen = 'start' | 'picker' | 'game' | 'score' | 'daily';
 
 export type Phase =
   | { kind: 'idle' }
-  | { kind: 'countdown'; startedAt: number; endsAt: number }
+  | { kind: 'countdown'; startedAt: number; endsAt: number; beats: number }
   | { kind: 'listening'; pattern: Pattern; patternStartTime: number; patternEndTime: number }
-  | { kind: 'echoing'; pattern: Pattern; echoStartTime: number; echoEndTime: number; taps: number[] }
+  | {
+      kind: 'echoing';
+      pattern: Pattern;
+      phaseStartedAt: number;
+      echoStartTime: number | null;
+      taps: number[];
+    }
   | { kind: 'scoring'; pattern: Pattern; result: RoundResult };
 
 export interface GameState {
@@ -15,6 +21,7 @@ export interface GameState {
   isDailyChallenge: boolean;
   phase: Phase;
   lastResult: RoundResult | null;
+  lastPattern: Pattern | null;
 }
 
 export const INITIAL_STATE: GameState = {
@@ -23,4 +30,5 @@ export const INITIAL_STATE: GameState = {
   isDailyChallenge: false,
   phase: { kind: 'idle' },
   lastResult: null,
+  lastPattern: null,
 };

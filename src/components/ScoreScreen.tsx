@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { GameState } from '../game/stateMachine';
-import type { RoundResult, TapResult } from '../patterns/types';
+import type { RoundResult } from '../patterns/types';
 import { goToPicker, playAgain } from '../game/gameLoop';
 import { loadHighScores } from '../lib/storage';
 import { loadDailyEntry } from '../lib/storage';
 import { todayUtcDateString } from '../patterns/daily';
+import { TimelineCompare } from './TimelineCompare';
 
 interface Props {
   state: GameState;
@@ -50,16 +51,12 @@ export function ScoreScreen({ state }: Props) {
 
   return (
     <div className="screen screen--score">
+      {state.lastPattern && <TimelineCompare pattern={state.lastPattern} result={result} />}
+
       <div className="score-headline">
         <div className="score-headline__number">{result.totalScore}</div>
         <div className="score-headline__label">{result.accuracyPct}% accuracy</div>
         {isNewBest && <div className="score-headline__badge">New best!</div>}
-      </div>
-
-      <div className="judgment-dots">
-        {result.taps.map((t, i) => (
-          <JudgmentDot key={i} tap={t} />
-        ))}
       </div>
 
       <JudgmentSummary result={result} />
@@ -85,17 +82,6 @@ export function ScoreScreen({ state }: Props) {
       </div>
     </div>
   );
-}
-
-function JudgmentDot({ tap }: { tap: TapResult }) {
-  const cls = `dot dot--${tap.judgment}`;
-  const title =
-    tap.judgment === 'miss'
-      ? 'Miss'
-      : tap.judgment === 'extra'
-        ? 'Extra tap'
-        : `${tap.judgment} (${Math.round(tap.errorMs ?? 0)}ms)`;
-  return <span className={cls} title={title} />;
 }
 
 function JudgmentSummary({ result }: { result: RoundResult }) {
