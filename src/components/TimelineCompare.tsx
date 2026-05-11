@@ -1,4 +1,4 @@
-import type { Pattern, RoundResult } from '../patterns/types';
+import type { Pattern, RoundResult, TapResult } from '../patterns/types';
 
 interface Props {
   pattern: Pattern;
@@ -7,6 +7,10 @@ interface Props {
 
 export function TimelineCompare({ pattern, result }: Props) {
   const expected = pattern.onsets;
+  const slope = result.tempoFactor || 1;
+  const intercept = result.tempoIntercept || 0;
+  const correctedExpected = expected.map((e) => slope * e + intercept);
+
   const tapTimes = result.taps
     .map((t) => t.tapTime)
     .filter((t): t is number => t !== null);
@@ -14,8 +18,11 @@ export function TimelineCompare({ pattern, result }: Props) {
   const maxTime = Math.max(
     pattern.durationSec,
     tapTimes.length ? Math.max(...tapTimes) : 0,
+    correctedExpected.length ? correctedExpected[correctedExpected.length - 1] : 0,
   );
   const denom = maxTime > 0 ? maxTime : 1;
+
+  const showCorrected = Math.abs(slope - 1) > 0.01 || Math.abs(intercept) > 0.01;
 
   return (
     <div className="timeline">
@@ -31,19 +38,53 @@ export function TimelineCompare({ pattern, result }: Props) {
           ))}
         </div>
       </div>
+      {showCorrected && (
+        <div className="timeline__row">
+          <span className="timeline__label">Your tempo</span>
+          <div className="timeline__track timeline__track--corrected">
+            {correctedExpected.map((onset, i) => (
+              <span
+                key={i}
+                className="timeline-dot timeline-dot--corrected"
+                style={{ left: `${(onset / denom) * 100}%` }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
       <div className="timeline__row">
         <span className="timeline__label">You</span>
         <div className="timeline__track timeline__track--actual">
           {result.taps.map((tap, i) => {
-            if (tap.tapTime === null) return null;
-            return (
-              <span
-                key={i}
-                className={`timeline-dot timeline-dot--${tap.judgment}`}
-                style={{ left: `${(tap.tapTime / denom) * 100}%` }}
-                title={titleFor(tap)}
-              />
-            );
+            if (tap.tapTime !== null) {
+              const tint = tap.rawErrorMs === null
+                ? ''
+                : tap.rawErrorMs < 0
+                  ? ' timeline-dot--early'
+                  : tap.rawErrorMs > 0
+                    ? ' timeline-dot--late'
+                    : '';
+              return (
+                <span
+                  key={i}
+                  className={`timeline-dot timeline-dot--${tap.judgment}${tint}`}
+                  style={{ left: `${(tap.tapTime / denom) * 100}%` }}
+                  title={titleFor(tap)}
+                />
+              );
+            }
+            if (tap.judgment === 'miss' && tap.expectedIdx !== null) {
+              const pos = correctedExpected[tap.expectedIdx] ?? expected[tap.expectedIdx];
+              return (
+                <span
+                  key={i}
+                  className="timeline-dot timeline-dot--miss"
+                  style={{ left: `${(pos / denom) * 100}%` }}
+                  title="Missed onset"
+                />
+              );
+            }
+            return null;
           })}
         </div>
       </div>
@@ -51,9 +92,15 @@ export function TimelineCompare({ pattern, result }: Props) {
   );
 }
 
-function titleFor(tap: RoundResult['taps'][number]): string {
+function titleFor(tap: TapResult): string {
   if (tap.judgment === 'extra') return 'Extra tap';
   if (tap.errorMs === null) return tap.judgment;
-  const sign = tap.errorMs >= 0 ? '+' : '';
-  return `${tap.judgment} (${sign}${Math.round(tap.errorMs)} ms)`;
+  const corrSign = tap.errorMs >= 0 ? '+' : '';
+  const corrMs = Math.round(tap.errorMs);
+  if (tap.rawErrorMs === null || Math.abs(tap.rawErrorMs - tap.errorMs) < 1) {
+    return `${tap.judgment} (${corrSign}${corrMs} ms)`;
+  }
+  const rawSign = tap.rawErrorMs >= 0 ? '+' : '';
+  const rawMs = Math.round(tap.rawErrorMs);
+  return `${tap.judgment} (corr ${corrSign}${corrMs} ms, raw ${rawSign}${rawMs} ms)`;
 }

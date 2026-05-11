@@ -17,6 +17,7 @@ const JUDGMENT_COLOR_VAR: Record<JudgmentOrExtra, string> = {
   perfect: 'var(--perfect)',
   great: 'var(--great)',
   ok: 'var(--ok)',
+  off: 'var(--off)',
   miss: 'var(--miss)',
   extra: 'var(--extra)',
 };

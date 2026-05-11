@@ -62,10 +62,11 @@ export function ScoreScreen({ state }: Props) {
       <div className="score-headline">
         <div className="score-headline__number">{result.totalScore}</div>
         <div className="score-headline__label">{result.accuracyPct}% accuracy</div>
-        <div className="score-headline__tempo">{tempoText(result.tempoFactor)}</div>
         {isNewBest && <div className="score-headline__badge">New best!</div>}
         {state.isPractice && <div className="score-headline__badge score-headline__badge--practice">Practice — not saved</div>}
       </div>
+
+      <SubScores result={result} />
 
       <JudgmentSummary result={result} />
 
@@ -92,6 +93,23 @@ export function ScoreScreen({ state }: Props) {
   );
 }
 
+function SubScores({ result }: { result: RoundResult }) {
+  return (
+    <div className="subscores">
+      <div className="subscore">
+        <div className="subscore__value">{result.rhythmScore}</div>
+        <div className="subscore__label">Rhythm</div>
+        <div className="subscore__sub">~{Math.round(result.meanAbsErrorMs)} ms avg</div>
+      </div>
+      <div className="subscore">
+        <div className="subscore__value">{result.tempoScore}</div>
+        <div className="subscore__label">Tempo</div>
+        <div className="subscore__sub">{tempoText(result.tempoPct)}</div>
+      </div>
+    </div>
+  );
+}
+
 function JudgmentSummary({ result }: { result: RoundResult }) {
   const c = result.judgmentCounts;
   return (
@@ -99,17 +117,17 @@ function JudgmentSummary({ result }: { result: RoundResult }) {
       <Tally label="Perfect" n={c.perfect} variant="perfect" />
       <Tally label="Great" n={c.great} variant="great" />
       <Tally label="OK" n={c.ok} variant="ok" />
+      {c.off > 0 && <Tally label="Off" n={c.off} variant="off" />}
       <Tally label="Miss" n={c.miss} variant="miss" />
       {c.extra > 0 && <Tally label="Extra" n={c.extra} variant="extra" />}
     </div>
   );
 }
 
-function tempoText(slope: number): string {
-  const pct = (slope - 1) * 100;
-  if (Math.abs(pct) < 1) return 'On tempo';
-  const rounded = Math.round(Math.abs(pct));
-  return pct < 0 ? `Tempo: ${rounded}% fast` : `Tempo: ${rounded}% slow`;
+function tempoText(tempoPct: number): string {
+  if (Math.abs(tempoPct) < 1) return 'On tempo';
+  const rounded = Math.round(Math.abs(tempoPct));
+  return tempoPct > 0 ? `${rounded}% fast` : `${rounded}% slow`;
 }
 
 function Tally({ label, n, variant }: { label: string; n: number; variant: string }) {
