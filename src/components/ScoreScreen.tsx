@@ -106,7 +106,7 @@ const SUBSCORE_INFO = {
   rhythm:
     "How well-timed your taps were. After correcting for your overall tempo, this is the average timing error per note (misses count as max error). 100 means every tap was right on the beat.",
   tempo:
-    "How close your overall pace was to the target. A consistent rhythm at the wrong speed scores high on Rhythm but lower here.",
+    "How steadily you kept time. Penalizes both a consistent offset (always too fast or slow) and mid-pattern wobble — rushing in the middle and recovering by the end still costs points. The % shown is your typical beat-to-beat deviation.",
 };
 
 function SubScores({ result }: { result: RoundResult }) {
@@ -137,7 +137,7 @@ function SubScores({ result }: { result: RoundResult }) {
       <Subscore
         label="Tempo"
         value={result.tempoScore}
-        sub={tempoText(result.tempoPct)}
+        sub={tempoText(result)}
         isOpen={openInfo === 'tempo'}
         onToggle={toggle('tempo')}
       />
@@ -197,10 +197,10 @@ function JudgmentSummary({ result }: { result: RoundResult }) {
   );
 }
 
-function tempoText(tempoPct: number): string {
-  if (Math.abs(tempoPct) < 1) return 'On tempo';
-  const rounded = Math.round(Math.abs(tempoPct));
-  return tempoPct > 0 ? `${rounded}% fast` : `${rounded}% slow`;
+function tempoText(r: RoundResult): string {
+  if (r.tempoDirection === 'on') return 'On tempo';
+  if (r.tempoDirection === 'mixed') return `~${r.tempoPct}% unsteady`;
+  return `~${r.tempoPct}% ${r.tempoDirection}`;
 }
 
 function Tally({ label, n, variant }: { label: string; n: number; variant: string }) {

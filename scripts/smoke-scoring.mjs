@@ -113,11 +113,26 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 }
 
 {
-  // Sign convention: positive tempoPct = fast, negative = slow.
+  // Direction convention: tempoDirection labels fast vs slow; tempoPct is the
+  // unsigned magnitude of the typical IOI deviation.
   const fast = scoreRound([0, 0.5, 1.0], [0, 0.475, 0.95]);
-  assert(fast.tempoPct > 0, `5% fast → positive tempoPct (got ${fast.tempoPct.toFixed(2)})`);
+  assert(fast.tempoDirection === 'fast', `5% fast → direction fast (got ${fast.tempoDirection})`);
+  assert(fast.tempoPct > 0, `5% fast → positive magnitude (got ${fast.tempoPct})`);
   const slow = scoreRound([0, 0.5, 1.0], [0, 0.525, 1.05]);
-  assert(slow.tempoPct < 0, `5% slow → negative tempoPct (got ${slow.tempoPct.toFixed(2)})`);
+  assert(slow.tempoDirection === 'slow', `5% slow → direction slow (got ${slow.tempoDirection})`);
+  assert(slow.tempoPct > 0, `5% slow → positive magnitude (got ${slow.tempoPct})`);
+}
+
+{
+  // Mid-pattern rushing then recovering: median slope ≈ 1 but local IOIs
+  // are wobbly. Direction should read 'mixed', not 'on tempo', and the
+  // tempo score should drop with the RMS deviation.
+  const exp = [0, 0.5, 1.0, 1.5, 2.0, 2.5];
+  // Tap 2 and 3 are rushed (early), then tap 4 is late to recover.
+  const taps = [0, 0.5, 0.85, 1.2, 1.7, 2.5];
+  const r = scoreRound(exp, taps);
+  assert(r.tempoDirection === 'mixed', `wobbly → direction mixed (got ${r.tempoDirection})`);
+  assert(r.tempoScore < 60, `wobbly → tempo drops (got ${r.tempoScore})`);
 }
 
 {
