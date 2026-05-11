@@ -121,6 +121,12 @@ function computeSubLabel(phase: Phase, now: number): string {
     if (count === 0) return `0 / ${total}`;
     return `${count} / ${total}`;
   }
+  if (phase.kind === 'echoing') {
+    const total = phase.pattern.onsets.length;
+    const count = phase.taps.length;
+    if (count === 0) return `0 / ${total}`;
+    return `${count} / ${total}`;
+  }
   return '';
 }
 
