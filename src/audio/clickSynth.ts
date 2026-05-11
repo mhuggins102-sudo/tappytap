@@ -140,3 +140,157 @@ export function scheduleTom(ctx: AudioContext, when: number): void {
   osc.start(start);
   osc.stop(start + 0.25);
 }
+
+export function scheduleHiTom(ctx: AudioContext, when: number): void {
+  const start = Math.max(when, ctx.currentTime);
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(330, start);
+  osc.frequency.exponentialRampToValueAtTime(180, start + 0.12);
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, start);
+  env.gain.exponentialRampToValueAtTime(0.5, start + 0.004);
+  env.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
+  osc.connect(env).connect(ctx.destination);
+  osc.start(start);
+  osc.stop(start + 0.2);
+}
+
+export function scheduleClap(ctx: AudioContext, when: number): void {
+  // Three quick noise bursts stacked, band-passed in the clap range.
+  const start = Math.max(when, ctx.currentTime);
+  const offsets = [0, 0.012, 0.024];
+  for (const off of offsets) {
+    const t = start + off;
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer(ctx, 0.06);
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 1500;
+    bp.Q.value = 1.5;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.exponentialRampToValueAtTime(0.45, t + 0.002);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+    noise.connect(bp).connect(env).connect(ctx.destination);
+    noise.start(t);
+    noise.stop(t + 0.07);
+  }
+}
+
+export function scheduleCowbell(ctx: AudioContext, when: number): void {
+  // Two detuned square oscillators band-passed for a metallic bell tone.
+  const start = Math.max(when, ctx.currentTime);
+  const freqs = [560, 845];
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, start);
+  env.gain.exponentialRampToValueAtTime(0.32, start + 0.003);
+  env.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 700;
+  bp.Q.value = 4;
+  env.connect(ctx.destination);
+  for (const f of freqs) {
+    const osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(f, start);
+    osc.connect(bp).connect(env);
+    osc.start(start);
+    osc.stop(start + 0.18);
+  }
+}
+
+export function scheduleRim(ctx: AudioContext, when: number): void {
+  // Short woody click — band-passed square plus a tiny noise transient.
+  const start = Math.max(when, ctx.currentTime);
+  const osc = ctx.createOscillator();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(1500, start);
+  const oscEnv = ctx.createGain();
+  oscEnv.gain.setValueAtTime(0.0001, start);
+  oscEnv.gain.exponentialRampToValueAtTime(0.3, start + 0.001);
+  oscEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.04);
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 1500;
+  bp.Q.value = 5;
+  osc.connect(bp).connect(oscEnv).connect(ctx.destination);
+  osc.start(start);
+  osc.stop(start + 0.06);
+
+  const noise = ctx.createBufferSource();
+  noise.buffer = noiseBuffer(ctx, 0.03);
+  const noiseEnv = ctx.createGain();
+  noiseEnv.gain.setValueAtTime(0.18, start);
+  noiseEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.025);
+  noise.connect(noiseEnv).connect(ctx.destination);
+  noise.start(start);
+  noise.stop(start + 0.035);
+}
+
+export function scheduleRide(ctx: AudioContext, when: number): void {
+  // Long-decay band-passed noise with a metallic shimmer.
+  const start = Math.max(when, ctx.currentTime);
+  const noise = ctx.createBufferSource();
+  noise.buffer = noiseBuffer(ctx, 0.3);
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 5500;
+  const peak = ctx.createBiquadFilter();
+  peak.type = 'peaking';
+  peak.frequency.value = 9500;
+  peak.Q.value = 6;
+  peak.gain.value = 9;
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, start);
+  env.gain.exponentialRampToValueAtTime(0.22, start + 0.003);
+  env.gain.exponentialRampToValueAtTime(0.0001, start + 0.28);
+  noise.connect(hp).connect(peak).connect(env).connect(ctx.destination);
+  noise.start(start);
+  noise.stop(start + 0.3);
+}
+
+export function scheduleShaker(ctx: AudioContext, when: number): void {
+  const start = Math.max(when, ctx.currentTime);
+  const noise = ctx.createBufferSource();
+  noise.buffer = noiseBuffer(ctx, 0.1);
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 4000;
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, start);
+  env.gain.exponentialRampToValueAtTime(0.22, start + 0.008);
+  env.gain.exponentialRampToValueAtTime(0.0001, start + 0.09);
+  noise.connect(hp).connect(env).connect(ctx.destination);
+  noise.start(start);
+  noise.stop(start + 0.1);
+}
+
+export function scheduleClave(ctx: AudioContext, when: number): void {
+  const start = Math.max(when, ctx.currentTime);
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(2500, start);
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, start);
+  env.gain.exponentialRampToValueAtTime(0.4, start + 0.001);
+  env.gain.exponentialRampToValueAtTime(0.0001, start + 0.04);
+  osc.connect(env).connect(ctx.destination);
+  osc.start(start);
+  osc.stop(start + 0.05);
+}
+
+export function scheduleTriangle(ctx: AudioContext, when: number): void {
+  const start = Math.max(when, ctx.currentTime);
+  const osc = ctx.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(3200, start);
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, start);
+  env.gain.exponentialRampToValueAtTime(0.18, start + 0.003);
+  env.gain.exponentialRampToValueAtTime(0.0001, start + 0.4);
+  osc.connect(env).connect(ctx.destination);
+  osc.start(start);
+  osc.stop(start + 0.42);
+}

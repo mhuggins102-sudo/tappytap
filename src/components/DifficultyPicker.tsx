@@ -82,11 +82,12 @@ export function DifficultyPicker() {
               <div className="picker-card__label">{lvl.label}</div>
               <div className="picker-card__blurb">{lvl.blurb}</div>
               <div className="picker-card__best">
-                {best ? `Best ${best.bestScore} · ${best.bestAccuracy}%` : 'No best yet'}
+                {best ? `Best ${best.bestScore}` : 'No best yet'}
               </div>
               {best && best.games > 0 && (
                 <div className="picker-card__avg">
-                  Avg {Math.round(best.totalScore / best.games)} · {Math.round(best.totalAccuracy / best.games)}% ({best.games} {best.games === 1 ? 'play' : 'plays'})
+                  Avg {Math.round(best.totalScore / best.games)} (
+                  {Math.round(best.totalRhythm / best.games)} rhythm · {Math.round(best.totalTempo / best.games)} tempo) ({best.games} {best.games === 1 ? 'play' : 'plays'})
                 </div>
               )}
             </button>
