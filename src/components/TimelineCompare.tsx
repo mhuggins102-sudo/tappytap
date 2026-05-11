@@ -6,13 +6,6 @@ interface Props {
   result: RoundResult;
 }
 
-function ioiTier(absDev: number): 'great' | 'good' | 'ok' | 'miss' {
-  if (absDev < 0.05) return 'great';
-  if (absDev < 0.1) return 'good';
-  if (absDev < 0.2) return 'ok';
-  return 'miss';
-}
-
 export function TimelineCompare({ pattern, result }: Props) {
   const expected = pattern.onsets;
   const slope = result.tempoFactor || 1;
@@ -36,8 +29,8 @@ export function TimelineCompare({ pattern, result }: Props) {
   const [selectedTap, setSelectedTap] = useState<number | null>(null);
 
   // Dismiss the tap-detail popover when the user clicks/taps anywhere that
-  // isn't another tap dot. The setTimeout prevents the click that opened it
-  // from immediately closing it.
+  // isn't another tap dot. The setTimeout prevents the click that opened
+  // the popover from immediately closing it.
   useEffect(() => {
     if (selectedTap === null) return;
     const onDocClick = (e: MouseEvent) => {
@@ -50,35 +43,6 @@ export function TimelineCompare({ pattern, result }: Props) {
       document.removeEventListener('click', onDocClick);
     };
   }, [selectedTap]);
-
-  // Pre-compute the IOI deviation between each pair of consecutive matched
-  // taps so we can render a colored band on the You row underneath the dots.
-  // Each band's color reflects how steady that one IOI was relative to the
-  // expected interval.
-  const segments: Array<{ key: number; from: number; to: number; tier: 'great' | 'good' | 'ok' | 'miss'; deviation: number }> = [];
-  let prev: { tapTime: number; expectedIdx: number } | null = null;
-  for (let i = 0; i < result.taps.length; i++) {
-    const t = result.taps[i];
-    if (t.tapTime === null || t.expectedIdx === null) {
-      prev = null;
-      continue;
-    }
-    if (prev !== null) {
-      const expIoi = expected[t.expectedIdx] - expected[prev.expectedIdx];
-      if (expIoi > 1e-6) {
-        const tapIoi = t.tapTime - prev.tapTime;
-        const dev = tapIoi / expIoi - 1;
-        segments.push({
-          key: i,
-          from: prev.tapTime,
-          to: t.tapTime,
-          tier: ioiTier(Math.abs(dev)),
-          deviation: dev,
-        });
-      }
-    }
-    prev = { tapTime: t.tapTime, expectedIdx: t.expectedIdx };
-  }
 
   return (
     <>
@@ -107,22 +71,6 @@ export function TimelineCompare({ pattern, result }: Props) {
         <div className="timeline__row">
           <span className="timeline__label">You</span>
           <div className="timeline__track timeline__track--actual">
-            {/* (A) Per-segment IOI shading: each band shows how steady the
-                interval to the previous tap was. Lives behind the dots. */}
-            {segments.map((seg) => {
-              const fromPos = corrected ? onTempo(seg.from) : seg.from;
-              const toPos = corrected ? onTempo(seg.to) : seg.to;
-              const left = (fromPos / denom) * 100;
-              const width = ((toPos - fromPos) / denom) * 100;
-              return (
-                <span
-                  key={`seg-${seg.key}`}
-                  className={`timeline-segment timeline-segment--${seg.tier}`}
-                  style={{ left: `${left}%`, width: `${width}%` }}
-                  title={`${(seg.deviation * 100).toFixed(0)}% ${seg.deviation < 0 ? 'fast' : 'slow'} on this beat`}
-                />
-              );
-            })}
             {result.taps.map((tap, i) => {
               if (tap.tapTime === null) return null;
               const pos = corrected ? onTempo(tap.tapTime) : tap.tapTime;
@@ -132,7 +80,7 @@ export function TimelineCompare({ pattern, result }: Props) {
                   key={i}
                   className={`timeline-dot timeline-dot--${tap.judgment} timeline-dot--animated${isSelected ? ' timeline-dot--selected' : ''}`}
                   style={{ left: `${(pos / denom) * 100}%` }}
-                  title={titleFor(tap)}
+                  title={titleFor(tap, corrected)}
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedTap((prev) => (prev === i ? null : i));
@@ -143,16 +91,25 @@ export function TimelineCompare({ pattern, result }: Props) {
           </div>
         </div>
       </div>
-      {/* (C) Tap-to-show popover: shows raw + corrected error for the
-          selected tap. Tap a dot to open; tap elsewhere to dismiss. */}
+      {/* Tap a dot to see its error in ms; tap elsewhere to dismiss. The
+          value shown matches whichever timing view is active above. */}
       {selectedTap !== null && result.taps[selectedTap] && (
-        <TapDetail tap={result.taps[selectedTap]} index={selectedTap} />
+        <TapDetail tap={result.taps[selectedTap]} index={selectedTap} corrected={corrected} />
       )}
     </>
   );
 }
 
-function TapDetail({ tap, index }: { tap: TapResult; index: number }) {
+function TapDetail({
+  tap,
+  index,
+  corrected,
+}: {
+  tap: TapResult;
+  index: number;
+  corrected: boolean;
+}) {
+  const errorMs = corrected ? tap.errorMs : tap.rawErrorMs;
   return (
     <div className="timeline__tap-popover">
       <span className={`timeline__tap-popover-tier timeline__tap-popover-tier--${tap.judgment}`}>
@@ -160,19 +117,13 @@ function TapDetail({ tap, index }: { tap: TapResult; index: number }) {
       </span>
       <span className="timeline__tap-popover-text">
         Tap {index + 1}
-        {tap.errorMs !== null && (
+        {errorMs !== null && (
           <>
-            {' · corrected '}
-            <strong>{formatMs(tap.errorMs)}</strong>
+            {' · '}
+            <strong>{formatMs(errorMs)}</strong>
+            <span className="timeline__tap-popover-mode"> {corrected ? '(on-tempo)' : '(raw)'}</span>
           </>
         )}
-        {tap.rawErrorMs !== null && tap.errorMs !== null &&
-          Math.abs(tap.rawErrorMs - tap.errorMs) >= 1 && (
-            <>
-              {' · raw '}
-              <strong>{formatMs(tap.rawErrorMs)}</strong>
-            </>
-          )}
       </span>
     </div>
   );
@@ -183,14 +134,8 @@ function formatMs(ms: number): string {
   return `${sign}${Math.round(ms)} ms`;
 }
 
-function titleFor(tap: TapResult): string {
-  if (tap.errorMs === null) return tap.judgment;
-  const corrSign = tap.errorMs >= 0 ? '+' : '';
-  const corrMs = Math.round(tap.errorMs);
-  if (tap.rawErrorMs === null || Math.abs(tap.rawErrorMs - tap.errorMs) < 1) {
-    return `${tap.judgment} (${corrSign}${corrMs} ms)`;
-  }
-  const rawSign = tap.rawErrorMs >= 0 ? '+' : '';
-  const rawMs = Math.round(tap.rawErrorMs);
-  return `${tap.judgment} (corr ${corrSign}${corrMs} ms, raw ${rawSign}${rawMs} ms)`;
+function titleFor(tap: TapResult, corrected: boolean): string {
+  const errorMs = corrected ? tap.errorMs : tap.rawErrorMs;
+  if (errorMs === null) return tap.judgment;
+  return `${tap.judgment} (${formatMs(errorMs)})`;
 }

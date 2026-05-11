@@ -6,7 +6,6 @@ import { loadHighScores } from '../lib/storage';
 import { loadDailyEntry } from '../lib/storage';
 import { todayUtcDateString } from '../patterns/daily';
 import { TimelineCompare } from './TimelineCompare';
-import { TempoSparkline } from './TempoSparkline';
 
 interface Props {
   state: GameState;
@@ -71,8 +70,6 @@ export function ScoreScreen({ state }: Props) {
         )}
       </div>
 
-      {state.lastPattern && <TempoSparkline pattern={state.lastPattern} result={result} />}
-
       <SubScores result={result} />
 
       <JudgmentSummary result={result} />
@@ -108,8 +105,8 @@ export function ScoreScreen({ state }: Props) {
 const SUBSCORE_INFO = {
   rhythm:
     "How well-timed your taps were. After correcting for your overall tempo, this is the average timing error per note (misses count as max error). 100 means every tap was right on the beat.",
-  tempo:
-    "How steadily you kept time. The % shown is your typical beat-to-beat IOI deviation, and the score drops by 2 for each percent (5% off ≈ 90, 10% off ≈ 80). Both consistent off-pace and mid-pattern wobble raise that %.",
+    tempo:
+    "How steadily you kept time. The % shown is the RMS deviation of your beat-to-beat IOIs from the target; the score drops by 3 for each percent (5% ≈ 85, 10% ≈ 70). Single sharp wobbles cost a bit more than the same total deviation spread evenly.",
 };
 
 function SubScores({ result }: { result: RoundResult }) {
