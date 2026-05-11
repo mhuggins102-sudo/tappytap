@@ -17,6 +17,11 @@ const COUNTDOWN_BEATS = 4;
 const ECHO_GAP_SEC = 0.8;
 const ECHO_TAIL_SEC = 0.5;
 const FIRST_TAP_TIMEOUT_SEC = 3;
+// Hard cap on player taps per round, expressed as expected_onsets + this
+// number. Generous enough to tolerate honest fumbles (an accidental tap, a
+// stray motif repeat in Easy mode), tight enough to short-circuit spam and
+// double-time-twice attempts before they pollute the alignment.
+const MAX_EXTRA_TAPS = 4;
 
 let pendingTimers: number[] = [];
 let releaseCapture: (() => void) | null = null;
@@ -225,6 +230,22 @@ function enterEchoPhase(
         lastFlash: { judgment: match.judgment, at: audioTime },
       },
     });
+
+    // Hard cap: once the player has tapped enough that any further taps would
+    // only be spam or runaway double-time, stop listening and finalize early.
+    // Honest play never gets close to this.
+    const maxTaps = pattern.onsets.length + MAX_EXTRA_TAPS;
+    if (currentTaps.length >= maxTaps) {
+      if (finalizeTimer !== null) {
+        window.clearTimeout(finalizeTimer);
+        finalizeTimer = null;
+      }
+      teardownCapture();
+      finalizeTimer = window.setTimeout(() => {
+        finalizeTimer = null;
+        finalizeRound(pattern, difficulty, isDailyChallenge, isPractice);
+      }, 150);
+    }
   });
 }
 
