@@ -8,15 +8,18 @@ import {
   scheduleHat,
   scheduleHiTom,
   scheduleKick,
+  scheduleMarimba,
+  schedulePiano,
   scheduleRide,
   scheduleRim,
   scheduleShaker,
   scheduleSnare,
+  scheduleSynthBass,
+  scheduleSynthLead,
   scheduleTom,
   scheduleTriangle,
 } from './clickSynth';
-
-export type SoundTheme = 'tones' | 'groove';
+import type { Instrument, SoundTheme } from '../lib/storage';
 
 type Drum =
   | 'kick'
@@ -32,33 +35,26 @@ type Drum =
   | 'clave'
   | 'triangle';
 
-// Each groove is a cycle of drum hits tiled across the pattern. The scheduler
-// picks one per round so the player hears variety. Mix simple 4-step rock
-// patterns with longer Latin/hip-hop/electronic flavors so different sound
-// palettes appear at random.
-const GROOVES: Drum[][] = [
-  // 4-step rock/pop kits
+// Drum grooves: each entry tiles cyclically across the pattern. Mixed kit
+// styles so different palettes appear at random.
+const DRUM_GROOVES: Drum[][] = [
   ['kick', 'hat', 'snare', 'hat'],
   ['kick', 'kick', 'snare', 'hat'],
   ['kick', 'hat', 'hat', 'snare'],
   ['snare', 'hat', 'kick', 'hat'],
   ['kick', 'tom', 'snare', 'tom'],
   ['kick', 'rim', 'snare', 'rim'],
-  // hip-hop / electronic
   ['kick', 'shaker', 'clap', 'shaker'],
   ['kick', 'hat', 'clap', 'hat'],
   ['kick', 'cowbell', 'snare', 'cowbell'],
   ['kick', 'hat', 'snare', 'clap'],
-  // Latin / percussion
   ['cowbell', 'clave', 'cowbell', 'clave'],
   ['clave', 'shaker', 'clave', 'shaker'],
   ['kick', 'clave', 'snare', 'clave'],
   ['cowbell', 'hat', 'snare', 'hat'],
   ['shaker', 'shaker', 'clap', 'shaker'],
-  // jazz / ride-driven
   ['kick', 'ride', 'snare', 'ride'],
   ['ride', 'ride', 'snare', 'ride'],
-  // 8-step grooves with more variety
   ['kick', 'hat', 'snare', 'tom', 'kick', 'hat', 'snare', 'hat'],
   ['hat', 'kick', 'hat', 'snare', 'hat', 'kick', 'hat', 'snare'],
   ['kick', 'hiTom', 'hat', 'snare', 'kick', 'tom', 'hat', 'snare'],
@@ -69,8 +65,35 @@ const GROOVES: Drum[][] = [
   ['kick', 'hat', 'hat', 'snare', 'hat', 'hat', 'kick', 'snare'],
 ];
 
-export function pickGrooveIndex(): number {
-  return Math.floor(Math.random() * GROOVES.length);
+// Melodic grooves: each entry is a sequence of voice indices into the
+// current instrument's scale. The same grooves work for any pitched
+// instrument; the audible result depends on which note palette is used.
+const MELODIC_GROOVES: number[][] = [
+  [0, 2, 4, 2],
+  [0, 4, 2, 5],
+  [0, 1, 2, 3, 4, 3, 2, 1],
+  [0, 2, 0, 4, 0, 2, 4, 2],
+  [2, 4, 0, 2, 2, 4, 0, 2],
+  [0, 2, 4, 5, 4, 2, 1, 0],
+  [4, 2, 1, 0, 1, 2, 4, 5],
+  [0, 0, 2, 0, 4, 2, 0, 0],
+  [0, 4, 2, 4, 0, 5, 4, 2],
+  [2, 0, 2, 4, 5, 4, 2, 0],
+];
+
+// C major pentatonic-like scales per instrument register.
+const MARIMBA_FREQS = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5]; // C5..C6
+const SYNTH_FREQS = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25]; // C4..C5
+const PIANO_FREQS = [261.63, 329.63, 392.0, 523.25, 659.25, 783.99]; // C4 E4 G4 C5 E5 G5
+const BASS_FREQS = [65.41, 73.42, 82.41, 98.0, 110.0, 130.81]; // C2..C3
+
+function isDrumInstrument(instrument: Instrument): boolean {
+  return instrument === 'drums';
+}
+
+export function pickGrooveIndex(instrument: Instrument): number {
+  const grooves = isDrumInstrument(instrument) ? DRUM_GROOVES : MELODIC_GROOVES;
+  return Math.floor(Math.random() * grooves.length);
 }
 
 function scheduleDrum(ctx: AudioContext, when: number, drum: Drum): void {
@@ -114,15 +137,63 @@ function scheduleDrum(ctx: AudioContext, when: number, drum: Drum): void {
   }
 }
 
+function scheduleMelodicVoice(
+  ctx: AudioContext,
+  when: number,
+  instrument: Exclude<Instrument, 'drums'>,
+  voiceIdx: number,
+): void {
+  const scale =
+    instrument === 'bass'
+      ? BASS_FREQS
+      : instrument === 'piano'
+        ? PIANO_FREQS
+        : instrument === 'synth'
+          ? SYNTH_FREQS
+          : MARIMBA_FREQS;
+  const freq = scale[voiceIdx % scale.length];
+  switch (instrument) {
+    case 'marimba':
+      scheduleMarimba(ctx, when, freq);
+      break;
+    case 'bass':
+      scheduleSynthBass(ctx, when, freq);
+      break;
+    case 'synth':
+      scheduleSynthLead(ctx, when, freq);
+      break;
+    case 'piano':
+      schedulePiano(ctx, when, freq);
+      break;
+  }
+}
+
+function scheduleGrooveHit(
+  ctx: AudioContext,
+  when: number,
+  instrument: Instrument,
+  grooveIdx: number,
+  positionIdx: number,
+): void {
+  if (isDrumInstrument(instrument)) {
+    const groove = DRUM_GROOVES[grooveIdx % DRUM_GROOVES.length];
+    scheduleDrum(ctx, when, groove[positionIdx % groove.length]);
+    return;
+  }
+  const groove = MELODIC_GROOVES[grooveIdx % MELODIC_GROOVES.length];
+  const voiceIdx = groove[positionIdx % groove.length];
+  scheduleMelodicVoice(ctx, when, instrument as Exclude<Instrument, 'drums'>, voiceIdx);
+}
+
 export function playTapFeedback(
   ctx: AudioContext,
   theme: SoundTheme,
+  instrument: Instrument,
   grooveIdx: number,
   tapIndex: number,
 ): void {
   if (theme === 'groove') {
-    const groove = GROOVES[grooveIdx % GROOVES.length];
-    scheduleDrum(ctx, ctx.currentTime, groove[tapIndex % groove.length]);
+    scheduleGrooveHit(ctx, ctx.currentTime, instrument, grooveIdx, tapIndex);
   } else {
     scheduleClick(ctx, ctx.currentTime, { freq: 1000, gain: 0.5, decaySec: 0.05 });
   }
@@ -133,13 +204,13 @@ export function schedulePattern(
   pattern: Pattern,
   startTime: number,
   theme: SoundTheme = 'tones',
+  instrument: Instrument = 'drums',
   grooveIdx: number = 0,
 ): number {
-  const groove = GROOVES[grooveIdx % GROOVES.length];
   for (let i = 0; i < pattern.onsets.length; i++) {
     const when = startTime + pattern.onsets[i];
     if (theme === 'groove') {
-      scheduleDrum(ctx, when, groove[i % groove.length]);
+      scheduleGrooveHit(ctx, when, instrument, grooveIdx, i);
     } else {
       scheduleClick(ctx, when);
     }
@@ -164,3 +235,5 @@ export function scheduleCountdown(ctx: AudioContext, startTime: number, beats: n
   }
   return startTime + beats * secPerBeat;
 }
+
+export type { SoundTheme, Instrument } from '../lib/storage';

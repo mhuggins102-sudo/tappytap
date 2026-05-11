@@ -281,6 +281,94 @@ export function scheduleClave(ctx: AudioContext, when: number): void {
   osc.stop(start + 0.05);
 }
 
+// Marimba: warm pitched mallet. Sine fundamental + softer harmonics with a
+// short exponential decay. Voiced via `freq` so the same synth covers any
+// scale degree the caller wants.
+export function scheduleMarimba(ctx: AudioContext, when: number, freq: number): void {
+  const start = Math.max(when, ctx.currentTime);
+  const partials: Array<[number, number, number]> = [
+    [1, 0.42, 0.7],
+    [2, 0.16, 0.45],
+    [4, 0.06, 0.28],
+  ];
+  for (const [ratio, gain, decay] of partials) {
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq * ratio, start);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, start);
+    env.gain.exponentialRampToValueAtTime(gain, start + 0.003);
+    env.gain.exponentialRampToValueAtTime(0.0001, start + decay);
+    osc.connect(env).connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + decay + 0.02);
+  }
+}
+
+// Synth bass: plucky sawtooth through a falling-cutoff lowpass.
+export function scheduleSynthBass(ctx: AudioContext, when: number, freq: number): void {
+  const start = Math.max(when, ctx.currentTime);
+  const osc = ctx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(freq, start);
+  const filt = ctx.createBiquadFilter();
+  filt.type = 'lowpass';
+  filt.frequency.setValueAtTime(900, start);
+  filt.frequency.exponentialRampToValueAtTime(220, start + 0.3);
+  filt.Q.value = 5;
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, start);
+  env.gain.exponentialRampToValueAtTime(0.45, start + 0.005);
+  env.gain.exponentialRampToValueAtTime(0.0001, start + 0.4);
+  osc.connect(filt).connect(env).connect(ctx.destination);
+  osc.start(start);
+  osc.stop(start + 0.45);
+}
+
+// Synth lead: filtered square wave with a slow filter sweep down.
+export function scheduleSynthLead(ctx: AudioContext, when: number, freq: number): void {
+  const start = Math.max(when, ctx.currentTime);
+  const osc = ctx.createOscillator();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(freq, start);
+  const filt = ctx.createBiquadFilter();
+  filt.type = 'lowpass';
+  filt.frequency.setValueAtTime(2400, start);
+  filt.frequency.exponentialRampToValueAtTime(900, start + 0.45);
+  filt.Q.value = 2;
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, start);
+  env.gain.exponentialRampToValueAtTime(0.16, start + 0.005);
+  env.gain.exponentialRampToValueAtTime(0.0001, start + 0.4);
+  osc.connect(filt).connect(env).connect(ctx.destination);
+  osc.start(start);
+  osc.stop(start + 0.45);
+}
+
+// Piano: triangle + sawtooth blend with a quick attack and medium decay.
+export function schedulePiano(ctx: AudioContext, when: number, freq: number): void {
+  const start = Math.max(when, ctx.currentTime);
+  const mix = ctx.createGain();
+  mix.gain.value = 1;
+  for (const [type, ratio, gain] of [
+    ['triangle', 1, 0.32] as const,
+    ['sawtooth', 1, 0.12] as const,
+    ['sine', 2, 0.08] as const,
+  ]) {
+    const osc = ctx.createOscillator();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq * ratio, start);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, start);
+    env.gain.exponentialRampToValueAtTime(gain, start + 0.002);
+    env.gain.exponentialRampToValueAtTime(0.0001, start + 0.55);
+    osc.connect(env).connect(mix);
+    osc.start(start);
+    osc.stop(start + 0.6);
+  }
+  mix.connect(ctx.destination);
+}
+
 export function scheduleTriangle(ctx: AudioContext, when: number): void {
   const start = Math.max(when, ctx.currentTime);
   const osc = ctx.createOscillator();

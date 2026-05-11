@@ -953,6 +953,39 @@ button {
   background: var(--accent-2);
 }
 
+.setting-row--dropdown {
+  cursor: default;
+}
+
+.setting-row__select {
+  appearance: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--fg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 4px 22px 4px 10px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  /* Custom caret */
+  background-image: linear-gradient(45deg, transparent 50%, var(--fg-dim) 50%),
+    linear-gradient(135deg, var(--fg-dim) 50%, transparent 50%);
+  background-position: calc(100% - 12px) 50%, calc(100% - 7px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.setting-row__select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (hover: hover) {
+  .setting-row__select:hover:not(:disabled) {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
 .settings__clear {
   appearance: none;
   background: transparent;

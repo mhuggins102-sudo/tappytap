@@ -4,6 +4,7 @@ import {
   playTapFeedback,
   schedulePattern,
   scheduleCountdown,
+  type Instrument,
   type SoundTheme,
 } from '../audio/scheduler';
 import { generatePattern } from '../patterns/generator';
@@ -75,7 +76,28 @@ export async function startRound(difficulty: Difficulty): Promise<void> {
   kickAudioSync();
   const eng = await ensureAudioEngine();
   const pattern = generatePattern(difficulty, rngFromRandom());
-  await beginRound(eng.ctx, pattern, difficulty, false);
+  await beginRound(eng.ctx, pattern, difficulty, false, false);
+}
+
+/**
+ * Replay the most recent pattern with the same groove. Used by the "Try
+ * again" button. Replays are flagged as such so finalizeRound skips
+ * recording them to the player's lifetime stats — only the first attempt
+ * at a beat counts toward best score / averages.
+ */
+export async function tryAgain(): Promise<void> {
+  const state = gameStore.get();
+  if (!state.lastPattern || state.isDailyChallenge) return;
+  kickAudioSync();
+  const eng = await ensureAudioEngine();
+  await beginRound(
+    eng.ctx,
+    state.lastPattern,
+    state.difficulty,
+    false,
+    true,
+    state.lastGrooveIdx ?? undefined,
+  );
 }
 
 export async function startDailyRound(): Promise<void> {
@@ -89,6 +111,7 @@ export async function startDailyRound(): Promise<void> {
       difficulty: 'medium',
       isDailyChallenge: true,
       isPractice: false,
+      isReplay: false,
       lastResult: existing.result,
       phase: { kind: 'idle' },
     });
@@ -96,7 +119,7 @@ export async function startDailyRound(): Promise<void> {
   }
   const eng = await ensureAudioEngine();
   const pattern = generateDailyPattern(dateStr);
-  await beginRound(eng.ctx, pattern, 'medium', true);
+  await beginRound(eng.ctx, pattern, 'medium', true, false);
 }
 
 async function beginRound(
@@ -104,6 +127,8 @@ async function beginRound(
   pattern: Pattern,
   difficulty: Difficulty,
   isDailyChallenge: boolean,
+  isReplay: boolean,
+  forcedGrooveIdx?: number,
 ): Promise<void> {
   clearTimers();
   teardownCapture();
@@ -119,8 +144,16 @@ async function beginRound(
   const countdownEnd = scheduleCountdown(ctx, countdownStart, COUNTDOWN_BEATS, pattern.bpm);
 
   const patternStart = countdownEnd;
-  const grooveIdx = pickGrooveIndex();
-  const patternEnd = schedulePattern(ctx, pattern, patternStart, settings.soundTheme, grooveIdx);
+  const grooveIdx =
+    forcedGrooveIdx !== undefined ? forcedGrooveIdx : pickGrooveIndex(settings.instrument);
+  const patternEnd = schedulePattern(
+    ctx,
+    pattern,
+    patternStart,
+    settings.soundTheme,
+    settings.instrument,
+    grooveIdx,
+  );
   const echoStart = patternEnd + ECHO_GAP_SEC;
 
   gameStore.set({
@@ -128,8 +161,10 @@ async function beginRound(
     difficulty,
     isDailyChallenge,
     isPractice,
+    isReplay,
     lastResult: gameStore.get().lastResult,
     lastPattern: pattern,
+    lastGrooveIdx: grooveIdx,
     phase: { kind: 'countdown', startedAt: countdownStart, endsAt: countdownEnd, beats: COUNTDOWN_BEATS },
   });
 
@@ -154,6 +189,7 @@ async function beginRound(
         isPractice,
         echoStart,
         settings.soundTheme,
+        settings.instrument,
         grooveIdx,
       );
     }, msUntilEcho),
@@ -168,6 +204,7 @@ function enterEchoPhase(
   isPractice: boolean,
   echoStart: number,
   soundTheme: SoundTheme,
+  instrument: Instrument,
   grooveIdx: number,
 ): void {
   currentTaps = [];
@@ -212,7 +249,7 @@ function enterEchoPhase(
     // event in flight could still arrive — drop it.
     if (currentTaps.length >= pattern.onsets.length) return;
 
-    playTapFeedback(ctx, soundTheme, grooveIdx, currentTaps.length);
+    playTapFeedback(ctx, soundTheme, instrument, grooveIdx, currentTaps.length);
 
     if (phase.echoStartTime === null) {
       if (abortTimer !== null) {
@@ -287,8 +324,12 @@ function finalizeRound(
   isPractice: boolean,
 ): void {
   const result = scoreRound(pattern.onsets, currentTaps);
+  const state = gameStore.get();
+  const isReplay = state.isReplay;
 
-  if (!isPractice) {
+  // Replays of a previous beat don't update lifetime stats — only the first
+  // attempt counts. Practice mode and daily history work as before.
+  if (!isPractice && !isReplay) {
     if (isDailyChallenge) {
       const dateStr = todayUtcDateString();
       saveDailyEntry({ date: dateStr, result, shareString: shareString(dateStr, result) });
@@ -298,6 +339,7 @@ function finalizeRound(
   }
 
   gameStore.set({
+    ...state,
     screen: 'score',
     difficulty,
     isDailyChallenge,
