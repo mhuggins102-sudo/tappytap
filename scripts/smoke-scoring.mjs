@@ -48,6 +48,20 @@ const expected = [0, 0.5, 1.0];
 
 {
   const r = scoreRound(expected, [0, 0.1, 0.5, 1.0]);
-  assert(r.judgmentCounts.extra === 1, 'extra tap detected');
-  assert(r.judgmentCounts.perfect === 3, '3 expected matched perfectly');
+  assert(r.judgmentCounts.extra === 1, 'mid-round extra detected');
+  assert(r.judgmentCounts.perfect === 2, '2 perfect after truncation');
+  assert(r.judgmentCounts.miss === 1, 'truncated 4th tap leaves 1 miss');
+}
+
+{
+  const r = scoreRound(expected, [0, 0.5, 1.0, 1.5, 2.0]);
+  assert(r.judgmentCounts.perfect === 3, 'overflow: 3 perfect from first 3 taps');
+  assert(r.judgmentCounts.extra === 0, 'overflow: trailing tap not counted as extra');
+  assert(r.totalScore === 100, 'overflow: 4th tap dropped, score remains 100');
+}
+
+{
+  const r = scoreRound(expected, [0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]);
+  assert(r.taps.length === 3, 'overflow heavy: only first 3 taps scored');
+  assert(r.judgmentCounts.extra === 0, 'overflow heavy: no extras recorded');
 }

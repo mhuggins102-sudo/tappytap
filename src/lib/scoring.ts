@@ -59,7 +59,7 @@ export function matchTapLive(tap: number, expected: number[], used: Set<number>)
 }
 
 export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundResult {
-  const taps = [...tapsSec].sort((a, b) => a - b);
+  const taps = [...tapsSec].sort((a, b) => a - b).slice(0, expectedOnsets.length);
   const used = new Set<number>();
   const matched: Array<TapResult & { _order: number }> = [];
   let rawScore = 0;
