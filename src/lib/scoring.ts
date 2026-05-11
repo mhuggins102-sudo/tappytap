@@ -94,6 +94,7 @@ interface AlignResult {
   ops: Op[];
   totalCost: number;
   matchCount: number;
+  longestRun: number;
 }
 
 function alignDP(expected: number[], taps: number[], slope: number, intercept: number): AlignResult {
@@ -167,7 +168,17 @@ function alignDP(expected: number[], taps: number[], slope: number, intercept: n
     }
   }
   opsRev.reverse();
-  return { ops: opsRev, totalCost: D[n][m], matchCount };
+  let longestRun = 0;
+  let currentRun = 0;
+  for (const op of opsRev) {
+    if (op.kind === 'match') {
+      currentRun++;
+      if (currentRun > longestRun) longestRun = currentRun;
+    } else {
+      currentRun = 0;
+    }
+  }
+  return { ops: opsRev, totalCost: D[n][m], matchCount, longestRun };
 }
 
 interface Seed {
@@ -239,10 +250,17 @@ function iterativeFitDP(expected: number[], taps: number[], seed: Seed): FitResu
 }
 
 function isBetterFit(a: FitResult, b: FitResult): boolean {
-  // Higher matchCount wins; ties broken by lower cost; further ties by |slope-1|.
+  // Higher matchCount wins; ties broken by lower cost; then by the longest
+  // contiguous run of MATCH ops (so an alignment that places extras in a
+  // single cluster is preferred over one that interleaves them between
+  // matches — e.g. double-time-twice picks slope ≈ 0.5 with extras at the
+  // end instead of slope=1 with every-other match); then by |slope-1|.
   if (a.align.matchCount !== b.align.matchCount) return a.align.matchCount > b.align.matchCount;
   if (Math.abs(a.align.totalCost - b.align.totalCost) > 1e-9) {
     return a.align.totalCost < b.align.totalCost;
+  }
+  if (a.align.longestRun !== b.align.longestRun) {
+    return a.align.longestRun > b.align.longestRun;
   }
   return Math.abs(a.slope - 1) < Math.abs(b.slope - 1);
 }
@@ -348,7 +366,17 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
   for (const r of tapResults) counts[r.judgment]++;
 
   const meanAbsErrorMs = matchCount > 0 ? matchedAbsErrorSum / matchCount : 0;
-  const rhythmScore = Math.max(0, Math.round(100 - meanAbsErrorMs * (5 / 6)));
+  const baseRhythm = Math.max(0, 100 - meanAbsErrorMs * (5 / 6));
+  // Cherry-picking matches from a flood of taps would otherwise let a spammer
+  // achieve rhythmScore=100 (the chosen matches happen to be on-beat). Scale
+  // rhythm down by how many surplus taps the player produced per expected
+  // onset, with a floor of 10. One extra-per-expected (e.g. double-time-twice)
+  // costs 5 points; 24 extras-per-expected (typical spam) hits the floor.
+  const extrasPerExpected = expectedCount > 0
+    ? Math.max(0, (totalTaps - expectedCount) / expectedCount)
+    : 0;
+  const rhythmFactor = Math.max(0.1, 1 - 0.05 * extrasPerExpected);
+  const rhythmScore = Math.round(baseRhythm * rhythmFactor);
 
   const tempoFactor = matchCount >= 2 ? slope : 1;
   const tempoIntercept = matchCount >= 2 ? intercept : 0;

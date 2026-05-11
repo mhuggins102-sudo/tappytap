@@ -94,7 +94,10 @@ const expected = [0, 0.5, 1.0];
   const r = scoreRound(expected, [0, 0.5, 1.0, 1.5, 2.0]);
   assert(r.judgmentCounts.perfect === 3, '3 perfect');
   assert(r.judgmentCounts.extra === 2, '2 trailing extras');
-  assert(r.totalScore === 60, `trailing 2 extras → 60 (got ${r.totalScore})`);
+  // 2 extras over 3 expected = 0.67 extras-per-expected ⇒ rhythm × 0.967.
+  // Total = 97 * 100 * 1 * 0.6 / 100 = 58.
+  assert(r.totalScore === 58, `trailing 2 extras → 58 (got ${r.totalScore})`);
+  assert(r.rhythmScore === 97, `trailing 2 extras → rhythmScore 97 (got ${r.rhythmScore})`);
   assert(r.cleanlinessPct === 60, `trailing 2 extras → clean 60 (got ${r.cleanlinessPct})`);
 }
 
@@ -161,6 +164,34 @@ const expected = [0, 0.5, 1.0];
     missesFromTally === missesFromCompleteness,
     `miss tally (${missesFromTally}) matches completeness (${missesFromCompleteness})`,
   );
+}
+
+{
+  // User-reported case: tap through the whole pattern *twice* at double speed.
+  // Previous tiebreak (|slope-1| smallest) picked slope=1 with every-other
+  // tap as an extra, falsely reporting "tempo perfect." The longest-match-run
+  // tiebreaker now prefers slope ≈ 0.5 with extras clustered at the end.
+  const exp = [];
+  for (let i = 0; i < 16; i++) exp.push(i * 0.3);
+  const span = exp[exp.length - 1];
+  const taps = [];
+  for (let i = 0; i < 32; i++) taps.push((i * span) / 31);
+  const r = scoreRound(exp, taps);
+  assert(
+    Math.abs(r.tempoFactor - 0.5) < 0.06,
+    `double-time-twice → slope ≈ 0.5 (got ${r.tempoFactor.toFixed(3)})`,
+  );
+  assert(r.tempoScore === 0, `double-time-twice → tempoScore 0 (got ${r.tempoScore})`);
+  assert(r.judgmentCounts.extra >= 14, `double-time-twice → many extras (got ${r.judgmentCounts.extra})`);
+}
+
+{
+  // Spam tap rhythm must not read as 100. extras-per-expected ≥ 24 hits floor.
+  const big = [0, 1.0, 2.0, 3.0];
+  const taps = [];
+  for (let i = 0; i < 100; i++) taps.push(i * 0.04);
+  const r = scoreRound(big, taps);
+  assert(r.rhythmScore <= 30, `spam → rhythmScore ≤ 30 (got ${r.rhythmScore})`);
 }
 
 {

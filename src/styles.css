@@ -212,6 +212,12 @@ button {
   color: var(--fg);
 }
 
+.toggle--disabled,
+.toggle[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .picker-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
