@@ -6,9 +6,9 @@
   --accent: #7c5cff;
   --accent-2: #19d3a2;
   --perfect: #7c5cff;
-  --great: #19d3a2;
-  --good: #84cc16;
-  --ok: #f1c40f;
+  --great: #22c55e;
+  --good: #f1c40f;
+  --ok: #f97316;
   --miss: #e74c3c;
   --radius: 14px;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
@@ -584,6 +584,9 @@ button {
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--radius);
   padding: 14px 16px;
+  /* Hide tap dots that fall outside the track when a slow player overflows
+     past the right edge in raw view. Toggling on-tempo brings them inside. */
+  overflow: hidden;
 }
 
 .timeline__row {

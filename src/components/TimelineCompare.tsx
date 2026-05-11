@@ -12,23 +12,23 @@ export function TimelineCompare({ pattern, result }: Props) {
   const intercept = result.tempoIntercept || 0;
   const showOnTempo = Math.abs(slope - 1) > 0.01 || Math.abs(intercept) > 0.01;
 
-  const tapTimes = result.taps
-    .map((t) => t.tapTime)
-    .filter((t): t is number => t !== null);
-
-  const firstTapTime = tapTimes.length ? Math.min(...tapTimes) : 0;
+  const firstTapTime = (() => {
+    for (const t of result.taps) {
+      if (t.tapTime !== null) return t.tapTime;
+    }
+    return 0;
+  })();
   const firstExpected = expected.length ? expected[0] : 0;
   const onTempo = (t: number) =>
     slope > 0 ? (t - firstTapTime) / slope + firstExpected : t;
 
-  const onTempoMaxTap = tapTimes.length ? Math.max(...tapTimes.map(onTempo)) : 0;
-
-  const maxTime = Math.max(
-    pattern.durationSec,
-    tapTimes.length ? Math.max(...tapTimes) : 0,
-    showOnTempo ? onTempoMaxTap : 0,
-  );
-  const denom = maxTime > 0 ? maxTime : 1;
+  // Denominator is pinned to the pattern's duration (the canonical time
+  // window). This keeps the Pattern row anchored end-to-end across the
+  // track. Slow players' raw tap dots can overflow the right edge; toggling
+  // on-tempo collapses them back inside the track. Fast players see the
+  // inverse: dots compressed on the left in raw view, spread to fill the
+  // track in on-tempo view.
+  const denom = Math.max(0.001, pattern.durationSec);
 
   // When `corrected` is true, the You row's tap dots are positioned at their
   // tempo-corrected times. Toggling re-positions them; the CSS transition on
