@@ -48,9 +48,39 @@ export async function ensureAudioEngine(): Promise<AudioEngine> {
   };
 
   engine = eng;
+  installResumeHandlers();
   return eng;
 }
 
 export function getEngine(): AudioEngine | null {
   return engine;
+}
+
+let resumeHandlersInstalled = false;
+
+function installResumeHandlers(): void {
+  if (resumeHandlersInstalled) return;
+  resumeHandlersInstalled = true;
+
+  const tryResume = () => {
+    if (!engine) return;
+    if (engine.ctx.state === 'suspended') {
+      void engine.ctx
+        .resume()
+        .then(() => engine?.recaptureClockOffset())
+        .catch(() => {
+          // Some browsers refuse to resume without a user gesture; the
+          // pointerdown handler below will retry on the next tap.
+        });
+    } else {
+      // Already 'running'; refresh the clock offset so timestamps line up
+      // with audio time again after the tab was suspended.
+      engine.recaptureClockOffset();
+    }
+  };
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') tryResume();
+  });
+  window.addEventListener('pointerdown', tryResume, { capture: true });
 }

@@ -136,6 +136,34 @@ const expected = [0, 0.5, 1.0];
 }
 
 {
+  // First tap is the player's time-zero anchor and must always be 'perfect'.
+  // Constrained fit (intercept=0) guarantees this even when later taps drift.
+  const exp = [0, 0.3, 0.6, 0.9, 1.2];
+  const drifty = [0, 0.5, 0.8, 1.1, 1.4]; // big offset from tap 2 onward
+  const r = scoreRound(exp, drifty);
+  assert(r.taps[0].judgment === 'perfect', `first tap perfect (got ${r.taps[0].judgment})`);
+  assert(r.taps[0].errorMs === 0, `first tap errorMs 0 (got ${r.taps[0].errorMs})`);
+  assert(Math.abs(r.tempoIntercept) < 1e-6, `intercept anchored to 0 (got ${r.tempoIntercept})`);
+}
+
+{
+  // The tally counts and matchCount-derived rates must agree: if matches all
+  // landed cleanly we shouldn't see any 'miss' judgments at the same time as
+  // 100% completeness. Demoting >150ms matches to MISS+EXTRA enforces this.
+  const exp = [0, 0.3, 0.6, 0.9, 1.2];
+  const drifty = [0, 0.5, 0.8, 1.1, 1.4];
+  const r = scoreRound(exp, drifty);
+  const missesFromTally = r.judgmentCounts.miss;
+  const missesFromCompleteness = r.taps.length > 0
+    ? exp.length - Math.round((r.completenessPct / 100) * exp.length)
+    : 0;
+  assert(
+    missesFromTally === missesFromCompleteness,
+    `miss tally (${missesFromTally}) matches completeness (${missesFromCompleteness})`,
+  );
+}
+
+{
   // Perfect-rhythm double-time: rhythm 100, tempo 0 (clamped by |slope-1|=0.5),
   // hit 100, clean 100 → multiplicative total = 0 by design (rhythm gates
   // through tempo). Slope ≈ 0.5, all taps perfect after correction.

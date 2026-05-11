@@ -79,7 +79,7 @@ export function DifficultyPicker() {
           onClick={onToggleLive}
         >
           <span className="toggle__indicator" />
-          <span className="toggle__label">Live timing feedback</span>
+          <span className="toggle__label">Live timing feedback (practice only)</span>
         </button>
 
         <button
