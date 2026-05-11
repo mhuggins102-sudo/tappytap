@@ -35,6 +35,17 @@ export function TimelineCompare({ pattern, result }: Props) {
   // `left` produces the animation in both directions.
   const [corrected, setCorrected] = useState(false);
 
+  // An expected onset is "missed" if the player either didn't tap near it
+  // (judgment === 'miss' with tapTime === null) or did tap but the timing was
+  // bad enough that the match was judged 'miss'. Either way, the dot on the
+  // Pattern row turns red so the player sees where they missed.
+  const missedExpected = new Set<number>();
+  for (const tap of result.taps) {
+    if (tap.expectedIdx !== null && tap.judgment === 'miss') {
+      missedExpected.add(tap.expectedIdx);
+    }
+  }
+
   return (
     <>
       {showOnTempo && (
@@ -50,13 +61,18 @@ export function TimelineCompare({ pattern, result }: Props) {
         <div className="timeline__row">
           <span className="timeline__label">Pattern</span>
           <div className="timeline__track timeline__track--expected">
-            {expected.map((onset, i) => (
-              <span
-                key={i}
-                className="timeline-dot timeline-dot--expected"
-                style={{ left: `${(onset / denom) * 100}%` }}
-              />
-            ))}
+            {expected.map((onset, i) => {
+              const cls = missedExpected.has(i)
+                ? 'timeline-dot timeline-dot--miss'
+                : 'timeline-dot timeline-dot--expected';
+              return (
+                <span
+                  key={i}
+                  className={cls}
+                  style={{ left: `${(onset / denom) * 100}%` }}
+                />
+              );
+            })}
           </div>
         </div>
         <div className="timeline__row">
