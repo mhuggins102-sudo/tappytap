@@ -16,6 +16,7 @@ export function DifficultyPicker() {
   const [dailyDone, setDailyDone] = useState(false);
   const [liveFeedback, setLiveFeedback] = useState(true);
   const [practiceMode, setPracticeMode] = useState(false);
+  const [grooveSounds, setGrooveSounds] = useState(false);
 
   useEffect(() => {
     setScores(loadHighScores());
@@ -23,6 +24,7 @@ export function DifficultyPicker() {
     const s = loadSettings();
     setLiveFeedback(s.liveFeedback);
     setPracticeMode(s.practiceMode);
+    setGrooveSounds(s.soundTheme === 'groove');
   }, []);
 
   const onToggleLive = () => {
@@ -35,6 +37,12 @@ export function DifficultyPicker() {
     const next = !practiceMode;
     setPracticeMode(next);
     saveSettings({ practiceMode: next });
+  };
+
+  const onToggleGroove = () => {
+    const next = !grooveSounds;
+    setGrooveSounds(next);
+    saveSettings({ soundTheme: next ? 'groove' : 'tones' });
   };
 
   return (
@@ -72,17 +80,6 @@ export function DifficultyPicker() {
 
       <div className="toggles">
         <button
-          className={`toggle ${liveFeedback ? 'toggle--on' : ''}`}
-          type="button"
-          role="switch"
-          aria-checked={liveFeedback}
-          onClick={onToggleLive}
-        >
-          <span className="toggle__indicator" />
-          <span className="toggle__label">Live timing feedback (practice only)</span>
-        </button>
-
-        <button
           className={`toggle ${practiceMode ? 'toggle--on' : ''}`}
           type="button"
           role="switch"
@@ -91,6 +88,31 @@ export function DifficultyPicker() {
         >
           <span className="toggle__indicator" />
           <span className="toggle__label">Practice mode (no scores saved)</span>
+        </button>
+
+        <button
+          className={`toggle ${liveFeedback ? 'toggle--on' : ''} ${practiceMode ? '' : 'toggle--disabled'}`}
+          type="button"
+          role="switch"
+          aria-checked={liveFeedback}
+          aria-disabled={!practiceMode}
+          disabled={!practiceMode}
+          onClick={onToggleLive}
+          title={practiceMode ? undefined : 'Turn on Practice Mode to use live feedback'}
+        >
+          <span className="toggle__indicator" />
+          <span className="toggle__label">Live timing feedback</span>
+        </button>
+
+        <button
+          className={`toggle ${grooveSounds ? 'toggle--on' : ''}`}
+          type="button"
+          role="switch"
+          aria-checked={grooveSounds}
+          onClick={onToggleGroove}
+        >
+          <span className="toggle__indicator" />
+          <span className="toggle__label">Groove sounds (drums)</span>
         </button>
       </div>
     </div>

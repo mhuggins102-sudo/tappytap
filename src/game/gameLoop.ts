@@ -1,5 +1,5 @@
-import { ensureAudioEngine } from '../audio/audioContext';
-import { schedulePattern, scheduleCountdown } from '../audio/scheduler';
+import { ensureAudioEngine, kickAudioSync } from '../audio/audioContext';
+import { pickGrooveIndex, schedulePattern, scheduleCountdown } from '../audio/scheduler';
 import { playFeedbackClick } from '../audio/clickSynth';
 import { generatePattern } from '../patterns/generator';
 import { generateDailyPattern, todayUtcDateString } from '../patterns/daily';
@@ -64,12 +64,14 @@ export async function dismissStart(): Promise<void> {
 }
 
 export async function startRound(difficulty: Difficulty): Promise<void> {
+  kickAudioSync();
   const eng = await ensureAudioEngine();
   const pattern = generatePattern(difficulty, rngFromRandom());
   await beginRound(eng.ctx, pattern, difficulty, false);
 }
 
 export async function startDailyRound(): Promise<void> {
+  kickAudioSync();
   const dateStr = todayUtcDateString();
   const existing = loadDailyEntry(dateStr);
   if (existing) {
@@ -110,7 +112,8 @@ async function beginRound(
   const countdownEnd = scheduleCountdown(ctx, countdownStart, COUNTDOWN_BEATS, pattern.bpm);
 
   const patternStart = countdownEnd;
-  const patternEnd = schedulePattern(ctx, pattern, patternStart);
+  const grooveIdx = pickGrooveIndex();
+  const patternEnd = schedulePattern(ctx, pattern, patternStart, settings.soundTheme, grooveIdx);
   const echoStart = patternEnd + ECHO_GAP_SEC;
 
   gameStore.set({

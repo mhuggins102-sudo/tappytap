@@ -74,13 +74,21 @@ export function saveDailyEntry(entry: Omit<DailyEntry, 'v'>): void {
   localStorage.setItem(DAILY_KEY, JSON.stringify(full));
 }
 
+export type SoundTheme = 'tones' | 'groove';
+
 export interface Settings {
   v: number;
   liveFeedback: boolean;
   practiceMode: boolean;
+  soundTheme: SoundTheme;
 }
 
-const DEFAULT_SETTINGS: Settings = { v: VERSION, liveFeedback: true, practiceMode: false };
+const DEFAULT_SETTINGS: Settings = {
+  v: VERSION,
+  liveFeedback: true,
+  practiceMode: false,
+  soundTheme: 'tones',
+};
 
 export function loadSettings(): Settings {
   const parsed = safeParse<Partial<Settings>>(localStorage.getItem(SETTINGS_KEY));
