@@ -355,9 +355,8 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
   const totalScore =
     matchCount === 0
       ? 0
-      : Math.max(
-          0,
-          Math.round((rhythmScore * tempoScore * completeness * cleanliness) / 100),
+      : Math.round(
+          (rhythmScore + tempoScore + completeness * 100 + cleanliness * 100) / 4,
         );
 
   const accuracyPct = totalTaps > 0 ? Math.round(cleanliness * 100) : 0;

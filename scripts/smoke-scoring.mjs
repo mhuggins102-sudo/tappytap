@@ -17,46 +17,48 @@ const expected = [0, 0.5, 1.0];
   assert(r.totalScore === 100, 'exact taps → 100');
   assert(r.accuracyPct === 100, 'exact taps → 100%');
   assert(Math.abs(r.tempoFactor - 1) < 0.001, 'exact taps → tempo 1.0');
+  assert(r.rhythmScore === 100 && r.tempoScore === 100, 'exact taps → both sub-scores 100');
 }
 
 {
-  // 5% fast, perfect rhythm: rhythm is 100, tempo penalty is 10% (sensitivity 2)
+  // 5% fast, perfect rhythm: rhythm=100, tempo=90, hit=100, clean=100 → avg=98
   const exp = [0, 0.5, 1.0, 1.5, 2.0];
   const taps = exp.map((t) => t * 0.95);
   const r = scoreRound(exp, taps);
   assert(r.judgmentCounts.perfect === 5, '5% fast perfect rhythm → 5 perfect after correction');
-  assert(r.totalScore === 90, `5% fast → 90 (got ${r.totalScore})`);
+  assert(r.totalScore === 98, `5% fast → 98 (got ${r.totalScore})`);
+  assert(r.tempoScore === 90, `5% fast → tempoScore 90 (got ${r.tempoScore})`);
   assert(Math.abs(r.tempoFactor - 0.95) < 0.01, `tempoFactor ≈ 0.95 (got ${r.tempoFactor.toFixed(3)})`);
 }
 
 {
-  // 10% fast, perfect rhythm: rhythm is 100, tempo penalty is 20%
+  // 10% fast, perfect rhythm: rhythm=100, tempo=80, hit=100, clean=100 → avg=95
   const exp = [0, 0.5, 1.0, 1.5, 2.0];
   const taps = exp.map((t) => t * 0.9);
   const r = scoreRound(exp, taps);
   assert(r.judgmentCounts.perfect === 5, `10% fast → 5 perfect after correction (got perfect=${r.judgmentCounts.perfect})`);
-  assert(r.totalScore === 80, `10% fast → 80 (got ${r.totalScore})`);
+  assert(r.totalScore === 95, `10% fast → 95 (got ${r.totalScore})`);
+  assert(r.tempoScore === 80, `10% fast → tempoScore 80 (got ${r.tempoScore})`);
   assert(Math.abs(r.tempoFactor - 0.9) < 0.01, `tempoFactor ≈ 0.9 (got ${r.tempoFactor.toFixed(3)})`);
 }
 
 {
-  // 2% fast, perfect rhythm: tempo penalty 4%
+  // 2% fast: rhythm=100, tempo=96, hit=100, clean=100 → avg=99
   const exp = [0, 0.5, 1.0, 1.5, 2.0];
   const taps = exp.map((t) => t * 0.98);
   const r = scoreRound(exp, taps);
-  assert(r.totalScore === 96, `2% fast → 96 (got ${r.totalScore})`);
+  assert(r.totalScore === 99, `2% fast → 99 (got ${r.totalScore})`);
 }
 
 {
-  // 30% fast (1.3x speed) — catches the regression where greedy matching
-  // mis-paired late taps and the linear fit collapsed to slope ≈ 1.
+  // 30% fast (1.3x speed). rhythm=100, tempo≈54, hit=100, clean=100 → avg≈89
   const exp = [0, 0.5, 1.0, 1.5, 2.0];
   const taps = exp.map((t) => t / 1.3);
   const r = scoreRound(exp, taps);
   assert(Math.abs(r.tempoFactor - 1 / 1.3) < 0.01, `1.3x → tempoFactor ≈ 0.77 (got ${r.tempoFactor.toFixed(3)})`);
   assert(r.judgmentCounts.perfect === 5, `1.3x → 5 perfect after correction (got ${r.judgmentCounts.perfect})`);
-  // tempoQuality = 1 − 2 × 0.231 = 0.538 → score ≈ 54
-  assert(r.totalScore >= 50 && r.totalScore <= 58, `1.3x → score 50..58 (got ${r.totalScore})`);
+  assert(r.tempoScore >= 50 && r.tempoScore <= 58, `1.3x → tempoScore 50..58 (got ${r.tempoScore})`);
+  assert(r.totalScore >= 85 && r.totalScore <= 92, `1.3x → total 85..92 (got ${r.totalScore})`);
 }
 
 {
@@ -69,39 +71,42 @@ const expected = [0, 0.5, 1.0];
 }
 
 {
-  // On tempo, jittery rhythm
+  // On tempo, jittery rhythm. rhythm drops, tempo stays high.
   const exp = [0, 0.5, 1.0, 1.5, 2.0];
   const taps = [0, 0.55, 0.95, 1.55, 1.95];
   const r = scoreRound(exp, taps);
-  // Linear fit will be near 1.0; residuals should still reflect jitter
   assert(Math.abs(r.tempoFactor - 1) < 0.05, `jittery on tempo → factor ≈ 1 (got ${r.tempoFactor.toFixed(3)})`);
   assert(r.totalScore < 95, `jittery on tempo → not perfect score (got ${r.totalScore})`);
   assert(r.judgmentCounts.perfect + r.judgmentCounts.great === 5, 'jittery → all hit within great or better');
 }
 
 {
-  // Mid-round extra
+  // Mid-round extra: 3 matched + 1 extra. clean=75, rest=100 → avg=94
   const r = scoreRound(expected, [0, 0.1, 0.5, 1.0]);
   assert(r.judgmentCounts.perfect === 3, '3 perfect after tempo correction');
   assert(r.judgmentCounts.extra === 1, '1 extra (the stray)');
   assert(r.accuracyPct === 75, 'accuracy = 3/4 = 75%');
+  assert(r.cleanlinessPct === 75, 'cleanliness = 75');
 }
 
 {
-  // Trailing extras
+  // Trailing extras: 3 matched + 2 extras. clean=60, rest=100 → avg=90
   const r = scoreRound(expected, [0, 0.5, 1.0, 1.5, 2.0]);
   assert(r.judgmentCounts.perfect === 3, '3 perfect');
   assert(r.judgmentCounts.extra === 2, '2 trailing extras');
-  assert(r.totalScore === 60, `trailing 2 extras → 60 (got ${r.totalScore})`);
+  assert(r.totalScore === 90, `trailing 2 extras → 90 (got ${r.totalScore})`);
+  assert(r.cleanlinessPct === 60, `trailing 2 extras → clean 60 (got ${r.cleanlinessPct})`);
 }
 
 {
-  // Spam — 12 taps on 4-onset pattern
+  // Spam — 12 taps on 4-onset pattern. Total is bounded by the 4 sub-scores'
+  // average; the Extra count and low clean rate communicate the issue.
   const big = [0, 1.0, 2.0, 3.0];
   const taps = [0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 2.0, 2.4, 2.8, 3.0];
   const r = scoreRound(big, taps);
-  assert(r.totalScore < 40, `spam → score < 40 (got ${r.totalScore})`);
-  assert(r.accuracyPct < 50, `spam → accuracy < 50% (got ${r.accuracyPct})`);
+  assert(r.cleanlinessPct < 50, `spam → cleanRate < 50% (got ${r.cleanlinessPct})`);
+  assert(r.accuracyPct < 50, `spam → accuracyPct < 50% (got ${r.accuracyPct})`);
+  assert(r.judgmentCounts.extra >= 6, `spam → many extras (got ${r.judgmentCounts.extra})`);
 }
 
 {
@@ -120,13 +125,27 @@ const expected = [0, 0.5, 1.0];
 }
 
 {
-  // Off tempo + intentionally bad rhythm: both factors should hurt the score
+  // Off tempo + intentionally bad rhythm: rhythm and tempo both drop;
+  // total averages them with hit/clean=100 so it stays in the 80s.
   const exp = [0, 0.5, 1.0, 1.5, 2.0];
   // Each tap is 5% fast PLUS individual jitter of ±50ms
   const taps = [0, 0.475 + 0.05, 0.95 - 0.05, 1.425 + 0.05, 1.9 - 0.05];
   const r = scoreRound(exp, taps);
-  assert(r.totalScore < 80, `off-tempo + bad rhythm → < 80 (got ${r.totalScore})`);
-  assert(r.totalScore > 40, `off-tempo + bad rhythm → > 40 (got ${r.totalScore})`);
+  assert(r.totalScore < 95, `off-tempo + bad rhythm → < 95 (got ${r.totalScore})`);
+  assert(r.totalScore > 60, `off-tempo + bad rhythm → > 60 (got ${r.totalScore})`);
+  assert(r.rhythmScore < 80, `off-tempo + bad rhythm → rhythmScore < 80 (got ${r.rhythmScore})`);
+  assert(r.tempoScore < 95, `off-tempo + bad rhythm → tempoScore < 95 (got ${r.tempoScore})`);
+}
+
+{
+  // Total is bounded by the min/max of the four sub-scores (since it's an average).
+  const exp = [0, 0.5, 1.0, 1.5, 2.0];
+  const taps = exp.map((t) => t * 0.9); // pure tempo deviation
+  const r = scoreRound(exp, taps);
+  const lo = Math.min(r.rhythmScore, r.tempoScore, r.completenessPct, r.cleanlinessPct);
+  const hi = Math.max(r.rhythmScore, r.tempoScore, r.completenessPct, r.cleanlinessPct);
+  assert(r.totalScore >= lo, `total (${r.totalScore}) ≥ min sub (${lo})`);
+  assert(r.totalScore <= hi, `total (${r.totalScore}) ≤ max sub (${hi})`);
 }
 
 {
@@ -142,7 +161,6 @@ const expected = [0, 0.5, 1.0];
 
 {
   // Grouped 3-2-5 pattern with a skipped middle tap (3-1-5 against 3-2-5).
-  // The alignment should detect the deletion and let the final group resync.
   const exp   = [0, 0.3, 0.6,  1.2, 1.5,  2.1, 2.4, 2.7, 3.0, 3.3];
   const taps2 = [0, 0.3, 0.6,  1.2,       2.1, 2.4, 2.7, 3.0, 3.3];
   const r2 = scoreRound(exp, taps2);
@@ -154,7 +172,6 @@ const expected = [0, 0.5, 1.0];
 {
   // 1.2x speed + one insertion: both should be detected.
   const exp3  = [0, 0.5, 1.0, 1.5, 2.0, 2.5];
-  // exp3 / 1.2 with a stray tap at 0.5
   const taps3 = [0, 0.417, 0.5, 0.833, 1.25, 1.667, 2.083];
   const r3 = scoreRound(exp3, taps3);
   assert(r3.judgmentCounts.extra === 1, `1.2x + insertion → 1 extra (got ${r3.judgmentCounts.extra})`);

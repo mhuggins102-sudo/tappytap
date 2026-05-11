@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { GameState } from '../game/stateMachine';
 import type { RoundResult } from '../patterns/types';
 import { goToPicker, playAgain } from '../game/gameLoop';
@@ -61,7 +61,7 @@ export function ScoreScreen({ state }: Props) {
 
       <div className="score-headline">
         <div className="score-headline__number">{result.totalScore}</div>
-        <div className="score-headline__label">{result.accuracyPct}% accuracy</div>
+        <div className="score-headline__label">Overall</div>
         {isNewBest && <div className="score-headline__badge">New best!</div>}
         {state.isPractice && <div className="score-headline__badge score-headline__badge--practice">Practice — not saved</div>}
       </div>
@@ -93,19 +93,101 @@ export function ScoreScreen({ state }: Props) {
   );
 }
 
+const SUBSCORE_INFO = {
+  rhythm:
+    "How tight your spacing was between taps. After correcting for your overall tempo, this measures the average timing error of each tap. 100 means every tap landed on the beat.",
+  tempo:
+    "How close your overall pace was to the target. A consistent rhythm at the wrong speed will still score high on Rhythm but lower here.",
+  hit:
+    "How many of the expected onsets you hit. Skipping notes lowers this.",
+  clean:
+    "How many of your taps actually landed on an expected onset. Extra/stray taps lower this.",
+};
+
 function SubScores({ result }: { result: RoundResult }) {
+  const [openInfo, setOpenInfo] = useState<keyof typeof SUBSCORE_INFO | null>(null);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!openInfo) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpenInfo(null);
+    };
+    window.addEventListener('mousedown', onDown);
+    return () => window.removeEventListener('mousedown', onDown);
+  }, [openInfo]);
+
+  const toggle = (k: keyof typeof SUBSCORE_INFO) => () =>
+    setOpenInfo((prev) => (prev === k ? null : k));
+
   return (
-    <div className="subscores">
-      <div className="subscore">
-        <div className="subscore__value">{result.rhythmScore}</div>
-        <div className="subscore__label">Rhythm</div>
-        <div className="subscore__sub">~{Math.round(result.meanAbsErrorMs)} ms avg</div>
-      </div>
-      <div className="subscore">
-        <div className="subscore__value">{result.tempoScore}</div>
-        <div className="subscore__label">Tempo</div>
-        <div className="subscore__sub">{tempoText(result.tempoPct)}</div>
-      </div>
+    <div className="subscores" ref={ref}>
+      <Subscore
+        label="Rhythm"
+        value={result.rhythmScore}
+        sub={`~${Math.round(result.meanAbsErrorMs)} ms avg`}
+        info={SUBSCORE_INFO.rhythm}
+        isOpen={openInfo === 'rhythm'}
+        onToggle={toggle('rhythm')}
+      />
+      <Subscore
+        label="Tempo"
+        value={result.tempoScore}
+        sub={tempoText(result.tempoPct)}
+        info={SUBSCORE_INFO.tempo}
+        isOpen={openInfo === 'tempo'}
+        onToggle={toggle('tempo')}
+      />
+      <Subscore
+        label="Hit rate"
+        value={result.completenessPct}
+        sub={`${result.judgmentCounts.miss} missed`}
+        info={SUBSCORE_INFO.hit}
+        isOpen={openInfo === 'hit'}
+        onToggle={toggle('hit')}
+      />
+      <Subscore
+        label="Clean rate"
+        value={result.cleanlinessPct}
+        sub={`${result.judgmentCounts.extra} extra`}
+        info={SUBSCORE_INFO.clean}
+        isOpen={openInfo === 'clean'}
+        onToggle={toggle('clean')}
+      />
+    </div>
+  );
+}
+
+function Subscore({
+  label,
+  value,
+  sub,
+  info,
+  isOpen,
+  onToggle,
+}: {
+  label: string;
+  value: number;
+  sub: string;
+  info: string;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="subscore">
+      <button
+        type="button"
+        className="subscore__info"
+        onClick={onToggle}
+        aria-label={`About ${label}`}
+        aria-expanded={isOpen}
+      >
+        i
+      </button>
+      <div className="subscore__value">{value}</div>
+      <div className="subscore__label">{label}</div>
+      <div className="subscore__sub">{sub}</div>
+      {isOpen && <div className="subscore__popover" role="tooltip">{info}</div>}
     </div>
   );
 }
@@ -119,7 +201,7 @@ function JudgmentSummary({ result }: { result: RoundResult }) {
       <Tally label="OK" n={c.ok} variant="ok" />
       {c.off > 0 && <Tally label="Off" n={c.off} variant="off" />}
       <Tally label="Miss" n={c.miss} variant="miss" />
-      {c.extra > 0 && <Tally label="Extra" n={c.extra} variant="extra" />}
+      <Tally label="Extra" n={c.extra} variant="extra" />
     </div>
   );
 }
