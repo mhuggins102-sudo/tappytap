@@ -7,28 +7,26 @@ export interface Pattern {
   difficulty: Difficulty;
 }
 
-export type Judgment = 'perfect' | 'great' | 'ok' | 'off' | 'miss';
-export type JudgmentOrExtra = Judgment | 'extra';
+export type Judgment = 'perfect' | 'great' | 'good' | 'ok' | 'miss';
 
 export interface TapResult {
-  expectedIdx: number | null;
+  expectedIdx: number;
   tapTime: number | null;
   errorMs: number | null;
   rawErrorMs: number | null;
-  judgment: JudgmentOrExtra;
+  judgment: Judgment;
 }
 
 export interface RoundResult {
   taps: TapResult[];
   totalScore: number;
   accuracyPct: number;
-  judgmentCounts: Record<Judgment | 'extra', number>;
+  judgmentCounts: Record<Judgment, number>;
   tempoFactor: number;
   tempoIntercept: number;
   rhythmScore: number;
   tempoScore: number;
   tempoPct: number;
   completenessPct: number;
-  cleanlinessPct: number;
   meanAbsErrorMs: number;
 }

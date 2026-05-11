@@ -8,7 +8,7 @@ import {
 } from '../audio/scheduler';
 import { generatePattern } from '../patterns/generator';
 import { generateDailyPattern, todayUtcDateString } from '../patterns/daily';
-import type { Difficulty, JudgmentOrExtra, Pattern } from '../patterns/types';
+import type { Difficulty, Judgment, Pattern } from '../patterns/types';
 import { rngFromRandom } from '../lib/rng';
 import { matchTapLive, scoreRound, shareString } from '../lib/scoring';
 import { loadSettings, recordRound, saveDailyEntry, loadDailyEntry } from '../lib/storage';
@@ -22,17 +22,11 @@ const COUNTDOWN_BEATS = 4;
 const ECHO_GAP_SEC = 0.8;
 const ECHO_TAIL_SEC = 0.5;
 const FIRST_TAP_TIMEOUT_SEC = 3;
-// Hard cap on player taps per round, expressed as expected_onsets + this
-// number. Generous enough to tolerate honest fumbles (an accidental tap, a
-// stray motif repeat in Easy mode), tight enough to short-circuit spam and
-// double-time-twice attempts before they pollute the alignment.
-const MAX_EXTRA_TAPS = 4;
 
 let pendingTimers: number[] = [];
 let releaseCapture: (() => void) | null = null;
 let currentTaps: number[] = [];
-let currentJudgments: JudgmentOrExtra[] = [];
-let matchedExpected: Set<number> = new Set();
+let currentJudgments: Judgment[] = [];
 let finalizeTimer: number | null = null;
 let abortTimer: number | null = null;
 
@@ -111,7 +105,6 @@ async function beginRound(
   teardownCapture();
   currentTaps = [];
   currentJudgments = [];
-  matchedExpected = new Set();
 
   const settings = loadSettings();
   const isPractice = !isDailyChallenge && settings.practiceMode;
@@ -175,7 +168,6 @@ function enterEchoPhase(
 ): void {
   currentTaps = [];
   currentJudgments = [];
-  matchedExpected = new Set();
 
   gameStore.set({
     ...gameStore.get(),
@@ -201,6 +193,9 @@ function enterEchoPhase(
   releaseCapture = startCapture((audioTime) => {
     const phase = gameStore.get().phase;
     if (phase.kind !== 'echoing') return;
+    // Defensive: input is also released when the cap is hit, but a final
+    // event in flight could still arrive — drop it.
+    if (currentTaps.length >= pattern.onsets.length) return;
 
     playTapFeedback(ctx, soundTheme, grooveIdx, currentTaps.length);
 
@@ -211,7 +206,6 @@ function enterEchoPhase(
       }
       currentTaps = [0];
       currentJudgments = ['perfect'];
-      matchedExpected = new Set([0]);
       gameStore.set({
         ...gameStore.get(),
         phase: {
@@ -223,6 +217,16 @@ function enterEchoPhase(
         },
       });
 
+      // Single-tap pattern: starting tap is the only tap. Finalize now.
+      if (pattern.onsets.length <= 1) {
+        teardownCapture();
+        finalizeTimer = window.setTimeout(() => {
+          finalizeTimer = null;
+          finalizeRound(pattern, difficulty, isDailyChallenge, isPractice);
+        }, 150);
+        return;
+      }
+
       const finalizeMs = (pattern.durationSec + ECHO_TAIL_SEC) * 1000;
       finalizeTimer = window.setTimeout(() => {
         finalizeTimer = null;
@@ -233,8 +237,8 @@ function enterEchoPhase(
     }
 
     const rel = audioTime - phase.echoStartTime;
-    const match = matchTapLive(rel, pattern.onsets, matchedExpected);
-    if (match.expectedIdx !== null) matchedExpected.add(match.expectedIdx);
+    const tapIdx = currentTaps.length;
+    const match = matchTapLive(rel, pattern.onsets[tapIdx], tapIdx);
     currentTaps.push(rel);
     currentJudgments.push(match.judgment);
     gameStore.set({
@@ -247,11 +251,10 @@ function enterEchoPhase(
       },
     });
 
-    // Hard cap: once the player has tapped enough that any further taps would
-    // only be spam or runaway double-time, stop listening and finalize early.
-    // Honest play never gets close to this.
-    const maxTaps = pattern.onsets.length + MAX_EXTRA_TAPS;
-    if (currentTaps.length >= maxTaps) {
+    // The round ends on the Nth tap: input is hard-capped at the pattern's
+    // onset count so there are no extras to score. Finalize after a brief
+    // delay so the final flash gets a chance to render.
+    if (currentTaps.length >= pattern.onsets.length) {
       if (finalizeTimer !== null) {
         window.clearTimeout(finalizeTimer);
         finalizeTimer = null;

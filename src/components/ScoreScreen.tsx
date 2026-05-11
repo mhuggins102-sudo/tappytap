@@ -95,13 +95,9 @@ export function ScoreScreen({ state }: Props) {
 
 const SUBSCORE_INFO = {
   rhythm:
-    "How tight your spacing was between taps. After correcting for your overall tempo, this measures the average timing error of each tap. 100 means every tap landed on the beat.",
+    "How well-timed your taps were. After correcting for your overall tempo, this is the average timing error per note (misses count as max error). 100 means every tap was right on the beat.",
   tempo:
-    "How close your overall pace was to the target. A consistent rhythm at the wrong speed will still score high on Rhythm but lower here.",
-  hit:
-    "How many of the expected onsets you hit. Skipping notes lowers this.",
-  clean:
-    "How many of your taps actually landed on an expected onset. Extra/stray taps lower this.",
+    "How close your overall pace was to the target. A consistent rhythm at the wrong speed scores high on Rhythm but lower here.",
 };
 
 function SubScores({ result }: { result: RoundResult }) {
@@ -137,22 +133,6 @@ function SubScores({ result }: { result: RoundResult }) {
         info={SUBSCORE_INFO.tempo}
         isOpen={openInfo === 'tempo'}
         onToggle={toggle('tempo')}
-      />
-      <Subscore
-        label="Hit rate"
-        value={result.completenessPct}
-        sub={`${result.judgmentCounts.miss} missed`}
-        info={SUBSCORE_INFO.hit}
-        isOpen={openInfo === 'hit'}
-        onToggle={toggle('hit')}
-      />
-      <Subscore
-        label="Clean rate"
-        value={result.cleanlinessPct}
-        sub={`${result.judgmentCounts.extra} extra`}
-        info={SUBSCORE_INFO.clean}
-        isOpen={openInfo === 'clean'}
-        onToggle={toggle('clean')}
       />
     </div>
   );
@@ -198,10 +178,9 @@ function JudgmentSummary({ result }: { result: RoundResult }) {
     <div className="judgment-summary">
       <Tally label="Perfect" n={c.perfect} variant="perfect" />
       <Tally label="Great" n={c.great} variant="great" />
+      <Tally label="Good" n={c.good} variant="good" />
       <Tally label="OK" n={c.ok} variant="ok" />
-      {c.off > 0 && <Tally label="Off" n={c.off} variant="off" />}
       <Tally label="Miss" n={c.miss} variant="miss" />
-      <Tally label="Extra" n={c.extra} variant="extra" />
     </div>
   );
 }

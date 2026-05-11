@@ -1,19 +1,18 @@
 import { useEffect, useRef } from 'react';
 import { getEngine } from '../audio/audioContext';
 import type { Phase } from '../game/stateMachine';
-import type { JudgmentOrExtra } from '../patterns/types';
+import type { Judgment } from '../patterns/types';
 
 interface Props {
   phase: Extract<Phase, { kind: 'echoing' }>;
 }
 
-const JUDGMENT_CLASS: Record<JudgmentOrExtra, string> = {
+const JUDGMENT_CLASS: Record<Judgment, string> = {
   perfect: 'practice-dot--perfect',
   great: 'practice-dot--great',
+  good: 'practice-dot--good',
   ok: 'practice-dot--ok',
-  off: 'practice-dot--off',
   miss: 'practice-dot--miss',
-  extra: 'practice-dot--extra',
 };
 
 export function PracticeOverlay({ phase }: Props) {
@@ -62,7 +61,7 @@ export function PracticeOverlay({ phase }: Props) {
         <span className="practice__label">You</span>
         <div className="practice__track practice__track--actual">
           {taps.map((t, i) => {
-            const j = tapJudgments[i] ?? 'extra';
+            const j = tapJudgments[i] ?? 'miss';
             const pct = Math.min(100, Math.max(0, (t / duration) * 100));
             return (
               <span
