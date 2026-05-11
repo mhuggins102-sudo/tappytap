@@ -150,9 +150,9 @@ const expected = [0, 0.5, 1.0];
 }
 
 {
-  // The tally counts and the completeness-derived miss count must agree:
-  // Hit rate counts only successful matches; Miss tally counts unmatched
-  // expecteds PLUS miss-judged matches. expected − successful = miss tally.
+  // The tally counts and matchCount-derived rates must agree: if matches all
+  // landed cleanly we shouldn't see any 'miss' judgments at the same time as
+  // 100% completeness. Demoting >150ms matches to MISS+EXTRA enforces this.
   const exp = [0, 0.3, 0.6, 0.9, 1.2];
   const drifty = [0, 0.5, 0.8, 1.1, 1.4];
   const r = scoreRound(exp, drifty);
@@ -163,35 +163,6 @@ const expected = [0, 0.5, 1.0];
   assert(
     missesFromTally === missesFromCompleteness,
     `miss tally (${missesFromTally}) matches completeness (${missesFromCompleteness})`,
-  );
-}
-
-{
-  // A single way-off tap must be counted as a miss OR an extra, never both.
-  // The DP will pair it with the nearest expected onset; it ends up labeled
-  // 'miss' on the You row, and the corresponding Pattern dot is missed.
-  // It must NOT show up in the extra tally.
-  const exp = [0, 0.5, 1.0, 1.5, 2.0];
-  // Mostly perfect, but tap #2 is 400ms late — way outside the window.
-  const taps = [0, 0.5, 1.4, 1.5, 2.0];
-  const r = scoreRound(exp, taps);
-  assert(
-    r.judgmentCounts.extra === 0,
-    `way-off tap → 0 extras (got ${r.judgmentCounts.extra})`,
-  );
-  assert(
-    r.judgmentCounts.miss >= 1,
-    `way-off tap → at least 1 miss (got ${r.judgmentCounts.miss})`,
-  );
-  // No tap or expected should be counted twice across Hit and Miss/Extra.
-  const totalEvents = r.judgmentCounts.perfect + r.judgmentCounts.great +
-    r.judgmentCounts.ok + r.judgmentCounts.off + r.judgmentCounts.miss +
-    r.judgmentCounts.extra;
-  // Every expected gets exactly one slot (perfect..miss); every extra adds one.
-  const extras = r.judgmentCounts.extra;
-  assert(
-    totalEvents === exp.length + extras,
-    `total events (${totalEvents}) = expected (${exp.length}) + extras (${extras})`,
   );
 }
 
