@@ -87,7 +87,7 @@ export function ScoreScreen({ state }: Props) {
         {!state.isDailyChallenge && (
           <>
             <button className="btn btn--primary" type="button" onClick={tryAgain}>
-              Try again
+              Replay
             </button>
             <button className="btn" type="button" onClick={playAgain}>
               New beat
@@ -131,7 +131,6 @@ function SubScores({ result }: { result: RoundResult }) {
         label="Rhythm"
         value={result.rhythmScore}
         sub={`~${Math.round(result.meanAbsErrorMs)} ms avg`}
-        info={SUBSCORE_INFO.rhythm}
         isOpen={openInfo === 'rhythm'}
         onToggle={toggle('rhythm')}
       />
@@ -139,10 +138,17 @@ function SubScores({ result }: { result: RoundResult }) {
         label="Tempo"
         value={result.tempoScore}
         sub={tempoText(result.tempoPct)}
-        info={SUBSCORE_INFO.tempo}
         isOpen={openInfo === 'tempo'}
         onToggle={toggle('tempo')}
       />
+      {openInfo && (
+        <div className="subscores__popover" role="tooltip">
+          <strong className="subscores__popover-title">
+            {openInfo === 'rhythm' ? 'Rhythm' : 'Tempo'}
+          </strong>
+          <span>{SUBSCORE_INFO[openInfo]}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -151,14 +157,12 @@ function Subscore({
   label,
   value,
   sub,
-  info,
   isOpen,
   onToggle,
 }: {
   label: string;
   value: number;
   sub: string;
-  info: string;
   isOpen: boolean;
   onToggle: () => void;
 }) {
@@ -176,7 +180,6 @@ function Subscore({
       <div className="subscore__value">{value}</div>
       <div className="subscore__label">{label}</div>
       <div className="subscore__sub">{sub}</div>
-      {isOpen && <div className="subscore__popover" role="tooltip">{info}</div>}
     </div>
   );
 }

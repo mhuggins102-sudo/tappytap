@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { startRound, goToDailyScreen } from '../game/gameLoop';
 import {
   clearHighScores,
@@ -27,23 +27,17 @@ const LEVELS: Array<{ id: Difficulty; label: string; blurb: string }> = [
 ];
 
 export function DifficultyPicker() {
-  const [scores, setScores] = useState<HighScores | null>(null);
-  const [dailyDone, setDailyDone] = useState(false);
-  const [liveFeedback, setLiveFeedback] = useState(true);
-  const [practiceMode, setPracticeMode] = useState(false);
-  const [grooveSounds, setGrooveSounds] = useState(true);
-  const [instrument, setInstrument] = useState<Instrument>('drums');
+  // Lazy initializers so persisted values are present on the first render.
+  // Otherwise the Daily Challenge button (and toggles) flashes from its
+  // default appearance to the correct one as useEffect runs after mount —
+  // the .btn color transition makes the change visible.
+  const [scores, setScores] = useState<HighScores | null>(() => loadHighScores());
+  const [dailyDone] = useState(() => loadDailyEntry(todayUtcDateString()) !== null);
+  const [liveFeedback, setLiveFeedback] = useState(() => loadSettings().liveFeedback);
+  const [practiceMode, setPracticeMode] = useState(() => loadSettings().practiceMode);
+  const [grooveSounds, setGrooveSounds] = useState(() => loadSettings().soundTheme === 'groove');
+  const [instrument, setInstrument] = useState<Instrument>(() => loadSettings().instrument);
   const [showSettings, setShowSettings] = useState(false);
-
-  useEffect(() => {
-    setScores(loadHighScores());
-    setDailyDone(loadDailyEntry(todayUtcDateString()) !== null);
-    const s = loadSettings();
-    setLiveFeedback(s.liveFeedback);
-    setPracticeMode(s.practiceMode);
-    setGrooveSounds(s.soundTheme === 'groove');
-    setInstrument(s.instrument);
-  }, []);
 
   const onChangeInstrument = (next: Instrument) => {
     setInstrument(next);
