@@ -20,8 +20,12 @@ export const gameStore = new Store<GameState>(INITIAL_STATE);
 
 const COUNTDOWN_BEATS = 4;
 const ECHO_GAP_SEC = 0.8;
-const ECHO_TAIL_SEC = 0.5;
 const FIRST_TAP_TIMEOUT_SEC = 3;
+// While the player is mid-pattern, end the round only after this many seconds
+// of silence. Pattern duration is no longer a hard cap so slow players get a
+// chance to finish; honest play with a 2.5s pause to recover still ends in a
+// reasonable time.
+const IDLE_TIMEOUT_SEC = 2.5;
 
 let pendingTimers: number[] = [];
 let releaseCapture: (() => void) | null = null;
@@ -190,6 +194,17 @@ function enterEchoPhase(
     gameStore.set({ ...gameStore.get(), screen: 'picker', phase: { kind: 'idle' } });
   }, FIRST_TAP_TIMEOUT_SEC * 1000);
 
+  const armIdleWatchdog = () => {
+    if (finalizeTimer !== null) {
+      window.clearTimeout(finalizeTimer);
+    }
+    finalizeTimer = window.setTimeout(() => {
+      finalizeTimer = null;
+      teardownCapture();
+      finalizeRound(pattern, difficulty, isDailyChallenge, isPractice);
+    }, IDLE_TIMEOUT_SEC * 1000);
+  };
+
   releaseCapture = startCapture((audioTime) => {
     const phase = gameStore.get().phase;
     if (phase.kind !== 'echoing') return;
@@ -227,12 +242,7 @@ function enterEchoPhase(
         return;
       }
 
-      const finalizeMs = (pattern.durationSec + ECHO_TAIL_SEC) * 1000;
-      finalizeTimer = window.setTimeout(() => {
-        finalizeTimer = null;
-        teardownCapture();
-        finalizeRound(pattern, difficulty, isDailyChallenge, isPractice);
-      }, finalizeMs);
+      armIdleWatchdog();
       return;
     }
 
@@ -251,9 +261,9 @@ function enterEchoPhase(
       },
     });
 
-    // The round ends on the Nth tap: input is hard-capped at the pattern's
-    // onset count so there are no extras to score. Finalize after a brief
-    // delay so the final flash gets a chance to render.
+    // Each tap resets the idle watchdog so the player can keep going as
+    // long as they're still tapping. The round still ends immediately
+    // once the Nth (final) tap lands.
     if (currentTaps.length >= pattern.onsets.length) {
       if (finalizeTimer !== null) {
         window.clearTimeout(finalizeTimer);
@@ -264,6 +274,8 @@ function enterEchoPhase(
         finalizeTimer = null;
         finalizeRound(pattern, difficulty, isDailyChallenge, isPractice);
       }, 150);
+    } else {
+      armIdleWatchdog();
     }
   });
 }
