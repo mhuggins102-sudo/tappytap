@@ -22,6 +22,7 @@ let pendingTimers: number[] = [];
 let releaseCapture: (() => void) | null = null;
 let currentTaps: number[] = [];
 let currentJudgments: JudgmentOrExtra[] = [];
+let currentExpectedIndices: (number | null)[] = [];
 let matchedExpected: Set<number> = new Set();
 let finalizeTimer: number | null = null;
 let abortTimer: number | null = null;
@@ -99,6 +100,7 @@ async function beginRound(
   teardownCapture();
   currentTaps = [];
   currentJudgments = [];
+  currentExpectedIndices = [];
   matchedExpected = new Set();
 
   const settings = loadSettings();
@@ -151,6 +153,7 @@ function enterEchoPhase(
 ): void {
   currentTaps = [];
   currentJudgments = [];
+  currentExpectedIndices = [];
   matchedExpected = new Set();
 
   gameStore.set({
@@ -162,6 +165,7 @@ function enterEchoPhase(
       echoStartTime: null,
       taps: [],
       tapJudgments: [],
+      tapExpectedIndices: [],
       lastFlash: null,
       isPractice,
     },
@@ -187,6 +191,7 @@ function enterEchoPhase(
       }
       currentTaps = [0];
       currentJudgments = ['perfect'];
+      currentExpectedIndices = [0];
       matchedExpected = new Set([0]);
       gameStore.set({
         ...gameStore.get(),
@@ -195,6 +200,7 @@ function enterEchoPhase(
           echoStartTime: audioTime,
           taps: [0],
           tapJudgments: ['perfect'],
+          tapExpectedIndices: [0],
           lastFlash: { judgment: 'perfect', at: audioTime },
         },
       });
@@ -213,12 +219,14 @@ function enterEchoPhase(
     if (match.expectedIdx !== null) matchedExpected.add(match.expectedIdx);
     currentTaps.push(rel);
     currentJudgments.push(match.judgment);
+    currentExpectedIndices.push(match.expectedIdx);
     gameStore.set({
       ...gameStore.get(),
       phase: {
         ...phase,
         taps: [...currentTaps],
         tapJudgments: [...currentJudgments],
+        tapExpectedIndices: [...currentExpectedIndices],
         lastFlash: { judgment: match.judgment, at: audioTime },
       },
     });

@@ -18,6 +18,7 @@ export type Phase =
       echoStartTime: number | null;
       taps: number[];
       tapJudgments: JudgmentOrExtra[];
+      tapExpectedIndices: (number | null)[];
       lastFlash: TapFlash | null;
       isPractice: boolean;
     }

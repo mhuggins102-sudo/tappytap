@@ -15,26 +15,50 @@ const JUDGMENT_CLASS: Record<JudgmentOrExtra, string> = {
   extra: 'practice-dot--extra',
 };
 
+const MATCH_WINDOW_SEC = 0.15;
+const EXPECTED_BASE_CLASS = 'practice-dot practice-dot--expected';
+const EXPECTED_MISS_CLASS = 'practice-dot practice-dot--expected-missed';
+
 export function PracticeOverlay({ phase }: Props) {
   const cursorRef = useRef<HTMLSpanElement | null>(null);
-  const { pattern, echoStartTime, taps, tapJudgments } = phase;
+  const expectedDotRefs = useRef<Array<HTMLSpanElement | null>>([]);
+  const { pattern, echoStartTime, taps, tapJudgments, tapExpectedIndices } = phase;
   const duration = Math.max(0.001, pattern.durationSec);
 
   useEffect(() => {
     let raf = 0;
     let stop = false;
+
+    const matchedSet = new Set<number>();
+    for (const idx of tapExpectedIndices) {
+      if (idx !== null) matchedSet.add(idx);
+    }
+
     const tick = () => {
       if (stop) return;
       const eng = getEngine();
       const cursor = cursorRef.current;
-      if (eng && cursor) {
-        let elapsed = 0;
-        if (echoStartTime !== null) {
-          elapsed = Math.min(duration, Math.max(0, eng.audioTimeNow() - echoStartTime));
+      if (eng) {
+        const now = eng.audioTimeNow();
+        const elapsed = echoStartTime === null ? 0 : Math.max(0, now - echoStartTime);
+        const cursorPct = (Math.min(duration, elapsed) / duration) * 100;
+        if (cursor) {
+          cursor.style.left = `${cursorPct}%`;
+          cursor.style.opacity = echoStartTime === null ? '0' : '1';
         }
-        const pct = (elapsed / duration) * 100;
-        cursor.style.left = `${pct}%`;
-        cursor.style.opacity = echoStartTime === null ? '0' : '1';
+
+        const dots = expectedDotRefs.current;
+        for (let i = 0; i < dots.length; i++) {
+          const dot = dots[i];
+          if (!dot) continue;
+          const onset = pattern.onsets[i];
+          const isMissed =
+            echoStartTime !== null &&
+            !matchedSet.has(i) &&
+            elapsed > onset + MATCH_WINDOW_SEC;
+          const desired = isMissed ? EXPECTED_MISS_CLASS : EXPECTED_BASE_CLASS;
+          if (dot.className !== desired) dot.className = desired;
+        }
       }
       raf = requestAnimationFrame(tick);
     };
@@ -43,7 +67,7 @@ export function PracticeOverlay({ phase }: Props) {
       stop = true;
       cancelAnimationFrame(raf);
     };
-  }, [echoStartTime, duration]);
+  }, [echoStartTime, duration, pattern, tapExpectedIndices]);
 
   return (
     <div className="practice">
@@ -53,7 +77,10 @@ export function PracticeOverlay({ phase }: Props) {
           {pattern.onsets.map((onset, i) => (
             <span
               key={i}
-              className="practice-dot practice-dot--expected"
+              ref={(el) => {
+                expectedDotRefs.current[i] = el;
+              }}
+              className={EXPECTED_BASE_CLASS}
               style={{ left: `${(onset / duration) * 100}%` }}
             />
           ))}

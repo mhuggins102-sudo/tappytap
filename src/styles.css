@@ -612,6 +612,7 @@ button {
 }
 
 .practice-dot--expected { background: #c7cad6; }
+.practice-dot--expected-missed { background: var(--miss); box-shadow: 0 0 8px var(--miss); }
 .practice-dot--perfect { background: var(--perfect); box-shadow: 0 0 8px var(--perfect); }
 .practice-dot--great { background: var(--great); box-shadow: 0 0 8px var(--great); }
 .practice-dot--ok { background: var(--ok); }
