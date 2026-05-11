@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { Pattern, RoundResult, TapResult } from '../patterns/types';
 
 interface Props {
@@ -15,9 +16,6 @@ export function TimelineCompare({ pattern, result }: Props) {
     .map((t) => t.tapTime)
     .filter((t): t is number => t !== null);
 
-  // Anchor the On-tempo row so the first tap lines up with the first expected
-  // onset. OLS can place a small non-zero intercept even when taps[0] is 0,
-  // which would otherwise push the first dot slightly left or right of zero.
   const firstTapTime = tapTimes.length ? Math.min(...tapTimes) : 0;
   const firstExpected = expected.length ? expected[0] : 0;
   const onTempo = (t: number) =>
@@ -31,6 +29,29 @@ export function TimelineCompare({ pattern, result }: Props) {
     showOnTempo ? onTempoMaxTap : 0,
   );
   const denom = maxTime > 0 ? maxTime : 1;
+
+  const [revealed, setRevealed] = useState(false);
+  // animatedToCorrected lags `revealed` by two animation frames so React can
+  // first paint the dots at their raw positions, then transition `left` to
+  // the corrected positions in the next frame. Without the delay the dots
+  // would be painted at their final positions and there would be no animation.
+  const [animatedToCorrected, setAnimatedToCorrected] = useState(false);
+
+  useEffect(() => {
+    if (!revealed) {
+      setAnimatedToCorrected(false);
+      return;
+    }
+    let raf1 = 0;
+    let raf2 = 0;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => setAnimatedToCorrected(true));
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [revealed]);
 
   return (
     <div className="timeline">
@@ -50,49 +71,40 @@ export function TimelineCompare({ pattern, result }: Props) {
         <span className="timeline__label">You</span>
         <div className="timeline__track timeline__track--actual">
           {result.taps.map((tap, i) => {
-            if (tap.tapTime !== null) {
-              const tint = tap.rawErrorMs === null
+            if (tap.tapTime === null) return null;
+            const tint =
+              tap.rawErrorMs === null
                 ? ''
                 : tap.rawErrorMs < -2
                   ? ' timeline-dot--early'
                   : tap.rawErrorMs > 2
                     ? ' timeline-dot--late'
                     : '';
-              return (
-                <span
-                  key={i}
-                  className={`timeline-dot timeline-dot--${tap.judgment}${tint}`}
-                  style={{ left: `${(tap.tapTime / denom) * 100}%` }}
-                  title={titleFor(tap)}
-                />
-              );
-            }
-            if (tap.judgment === 'miss' && tap.expectedIdx !== null) {
-              const pos = slope * expected[tap.expectedIdx] + intercept;
-              return (
-                <span
-                  key={i}
-                  className="timeline-dot timeline-dot--miss"
-                  style={{ left: `${(pos / denom) * 100}%` }}
-                  title="Missed onset"
-                />
-              );
-            }
-            return null;
+            return (
+              <span
+                key={i}
+                className={`timeline-dot timeline-dot--${tap.judgment}${tint}`}
+                style={{ left: `${(tap.tapTime / denom) * 100}%` }}
+                title={titleFor(tap)}
+              />
+            );
           })}
         </div>
       </div>
       {showOnTempo && (
-        <div className="timeline__row">
+        <div
+          className={`timeline__row timeline__row--collapsible ${revealed ? '' : 'timeline__row--collapsed'}`}
+          aria-hidden={!revealed}
+        >
           <span className="timeline__label">On tempo</span>
           <div className="timeline__track timeline__track--corrected">
             {result.taps.map((tap, i) => {
               if (tap.tapTime === null) return null;
-              const pos = onTempo(tap.tapTime);
+              const pos = animatedToCorrected ? onTempo(tap.tapTime) : tap.tapTime;
               return (
                 <span
                   key={i}
-                  className={`timeline-dot timeline-dot--${tap.judgment}`}
+                  className={`timeline-dot timeline-dot--${tap.judgment} timeline-dot--animated`}
                   style={{ left: `${(pos / denom) * 100}%` }}
                   title={titleFor(tap)}
                 />
@@ -100,6 +112,15 @@ export function TimelineCompare({ pattern, result }: Props) {
             })}
           </div>
         </div>
+      )}
+      {showOnTempo && (
+        <button
+          className="btn btn--small timeline__reveal"
+          type="button"
+          onClick={() => setRevealed(!revealed)}
+        >
+          {revealed ? 'Hide on-tempo view' : 'Show on-tempo view'}
+        </button>
       )}
     </div>
   );

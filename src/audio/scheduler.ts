@@ -46,6 +46,20 @@ function scheduleDrum(ctx: AudioContext, when: number, drum: Drum): void {
   }
 }
 
+export function playTapFeedback(
+  ctx: AudioContext,
+  theme: SoundTheme,
+  grooveIdx: number,
+  tapIndex: number,
+): void {
+  if (theme === 'groove') {
+    const groove = GROOVES[grooveIdx % GROOVES.length];
+    scheduleDrum(ctx, ctx.currentTime, groove[tapIndex % groove.length]);
+  } else {
+    scheduleClick(ctx, ctx.currentTime, { freq: 1000, gain: 0.5, decaySec: 0.05 });
+  }
+}
+
 export function schedulePattern(
   ctx: AudioContext,
   pattern: Pattern,

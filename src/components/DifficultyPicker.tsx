@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { startRound, goToDailyScreen } from '../game/gameLoop';
-import { loadHighScores, loadSettings, saveSettings, type HighScores } from '../lib/storage';
+import {
+  clearHighScores,
+  loadHighScores,
+  loadSettings,
+  saveSettings,
+  type HighScores,
+} from '../lib/storage';
 import { loadDailyEntry } from '../lib/storage';
 import { todayUtcDateString } from '../patterns/daily';
 import type { Difficulty } from '../patterns/types';
@@ -45,6 +51,21 @@ export function DifficultyPicker() {
     saveSettings({ soundTheme: next ? 'groove' : 'tones' });
   };
 
+  const onClearStats = () => {
+    const hasAny =
+      (scores?.easy?.games ?? 0) +
+        (scores?.medium?.games ?? 0) +
+        (scores?.hard?.games ?? 0) >
+      0;
+    if (!hasAny) return;
+    const ok = window.confirm(
+      'Clear best scores and lifetime averages for Easy, Medium, and Hard? Daily challenge history is kept.',
+    );
+    if (!ok) return;
+    clearHighScores();
+    setScores(loadHighScores());
+  };
+
   return (
     <div className="screen screen--picker">
       <h2 className="subtitle">Choose your challenge</h2>
@@ -63,6 +84,11 @@ export function DifficultyPicker() {
               <div className="picker-card__best">
                 {best ? `Best ${best.bestScore} · ${best.bestAccuracy}%` : 'No best yet'}
               </div>
+              {best && best.games > 0 && (
+                <div className="picker-card__avg">
+                  Avg {Math.round(best.totalScore / best.games)} · {Math.round(best.totalAccuracy / best.games)}% ({best.games} {best.games === 1 ? 'play' : 'plays'})
+                </div>
+              )}
             </button>
           );
         })}
@@ -114,6 +140,16 @@ export function DifficultyPicker() {
           <span className="toggle__indicator" />
           <span className="toggle__label">Groove sounds (drums)</span>
         </button>
+
+        {(scores?.easy?.games || scores?.medium?.games || scores?.hard?.games) ? (
+          <button
+            className="btn btn--small btn--clear-stats"
+            type="button"
+            onClick={onClearStats}
+          >
+            Clear best scores
+          </button>
+        ) : null}
       </div>
     </div>
   );
