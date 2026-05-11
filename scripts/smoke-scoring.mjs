@@ -128,3 +128,73 @@ const expected = [0, 0.5, 1.0];
   assert(r.totalScore < 80, `off-tempo + bad rhythm → < 80 (got ${r.totalScore})`);
   assert(r.totalScore > 40, `off-tempo + bad rhythm → > 40 (got ${r.totalScore})`);
 }
+
+{
+  // Grouped 3-2-5 pattern with an extra tap in the middle group.
+  // The alignment should detect the insertion and let the final group resync.
+  const exp  = [0, 0.3, 0.6,  1.2, 1.5,  2.1, 2.4, 2.7, 3.0, 3.3];
+  const taps = [0, 0.3, 0.6,  1.2, 1.35, 1.5,  2.1, 2.4, 2.7, 3.0, 3.3];
+  const r = scoreRound(exp, taps);
+  assert(r.judgmentCounts.extra === 1, `3-3-5 → 1 extra (got ${r.judgmentCounts.extra})`);
+  assert(r.judgmentCounts.perfect >= 9, `3-3-5 → ≥9 perfect after resync (got ${r.judgmentCounts.perfect})`);
+  assert(r.judgmentCounts.miss === 0, `3-3-5 → no misses (got ${r.judgmentCounts.miss})`);
+}
+
+{
+  // Grouped 3-2-5 pattern with a skipped middle tap (3-1-5 against 3-2-5).
+  // The alignment should detect the deletion and let the final group resync.
+  const exp   = [0, 0.3, 0.6,  1.2, 1.5,  2.1, 2.4, 2.7, 3.0, 3.3];
+  const taps2 = [0, 0.3, 0.6,  1.2,       2.1, 2.4, 2.7, 3.0, 3.3];
+  const r2 = scoreRound(exp, taps2);
+  assert(r2.judgmentCounts.miss === 1, `3-1-5 → 1 miss (got ${r2.judgmentCounts.miss})`);
+  assert(r2.judgmentCounts.perfect === 9, `3-1-5 → 9 perfect (got ${r2.judgmentCounts.perfect})`);
+  assert(r2.judgmentCounts.extra === 0, `3-1-5 → no extras`);
+}
+
+{
+  // 1.2x speed + one insertion: both should be detected.
+  const exp3  = [0, 0.5, 1.0, 1.5, 2.0, 2.5];
+  // exp3 / 1.2 with a stray tap at 0.5
+  const taps3 = [0, 0.417, 0.5, 0.833, 1.25, 1.667, 2.083];
+  const r3 = scoreRound(exp3, taps3);
+  assert(r3.judgmentCounts.extra === 1, `1.2x + insertion → 1 extra (got ${r3.judgmentCounts.extra})`);
+  assert(
+    Math.abs(r3.tempoFactor - 1 / 1.2) < 0.02,
+    `1.2x + insertion → tempoFactor ≈ ${ (1/1.2).toFixed(3) } (got ${r3.tempoFactor.toFixed(3)})`,
+  );
+}
+
+{
+  // Sign convention: positive tempoPct = fast, negative = slow.
+  const r4 = scoreRound([0, 0.5, 1.0], [0, 0.475, 0.95]); // 5% fast
+  assert(r4.tempoPct > 0, `5% fast → positive tempoPct (got ${r4.tempoPct.toFixed(2)})`);
+  assert(Math.abs(r4.tempoPct - (1/0.95 - 1) * 100) < 0.5, `5% fast → ~5.3% (got ${r4.tempoPct.toFixed(2)})`);
+
+  const r5 = scoreRound([0, 0.5, 1.0], [0, 0.525, 1.05]); // 5% slow
+  assert(r5.tempoPct < 0, `5% slow → negative tempoPct (got ${r5.tempoPct.toFixed(2)})`);
+}
+
+{
+  // Sub-scores: on-tempo perfect taps → both 100.
+  const r = scoreRound([0, 0.5, 1.0], [0, 0.5, 1.0]);
+  assert(r.rhythmScore === 100, `perfect → rhythmScore 100 (got ${r.rhythmScore})`);
+  assert(r.tempoScore === 100, `perfect → tempoScore 100 (got ${r.tempoScore})`);
+}
+
+{
+  // Sub-scores: on-tempo jitter degrades rhythm but not tempo.
+  const exp = [0, 0.5, 1.0, 1.5, 2.0];
+  const taps = [0, 0.55, 0.95, 1.55, 1.95];
+  const r = scoreRound(exp, taps);
+  assert(r.tempoScore >= 92, `on-tempo jitter → tempoScore stays high (got ${r.tempoScore})`);
+  assert(r.rhythmScore < 80, `on-tempo jitter → rhythmScore drops (got ${r.rhythmScore})`);
+}
+
+{
+  // Sub-scores: tempo-only deviation (10% fast, no jitter) → rhythm stays 100.
+  const exp = [0, 0.5, 1.0, 1.5, 2.0];
+  const taps = exp.map((t) => t * 0.9);
+  const r = scoreRound(exp, taps);
+  assert(r.rhythmScore === 100, `10% fast tight rhythm → rhythmScore 100 (got ${r.rhythmScore})`);
+  assert(r.tempoScore === 80, `10% fast → tempoScore 80 (got ${r.tempoScore})`);
+}

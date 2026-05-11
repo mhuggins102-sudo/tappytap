@@ -11,6 +11,7 @@ const JUDGMENT_CLASS: Record<JudgmentOrExtra, string> = {
   perfect: 'practice-dot--perfect',
   great: 'practice-dot--great',
   ok: 'practice-dot--ok',
+  off: 'practice-dot--off',
   miss: 'practice-dot--miss',
   extra: 'practice-dot--extra',
 };

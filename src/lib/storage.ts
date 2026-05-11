@@ -3,7 +3,7 @@ import type { Difficulty, RoundResult } from '../patterns/types';
 const HIGHSCORES_KEY = 'tappytap.highscores';
 const DAILY_KEY = 'tappytap.daily';
 const SETTINGS_KEY = 'tappytap.settings';
-const VERSION = 1;
+const VERSION = 2;
 
 export interface DifficultyRecord {
   bestScore: number;
