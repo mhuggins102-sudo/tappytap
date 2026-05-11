@@ -77,6 +77,31 @@ function fitSlopeMedianRatio(expected: number[], taps: number[], n: number): num
     : ratios[mid];
 }
 
+/**
+ * Tempo stability — RMS deviation of local IOI ratios from 1.0. Captures
+ * BOTH consistent offset (all ratios = 1.1 ⇒ rms = 0.1) AND mid-pattern
+ * fluctuation (ratios bouncing between 0.85 and 1.15 also gives a high
+ * rms even if their mean is 1). The displayed tempo % still comes from the
+ * median-ratio slope, but the tempoScore is driven by this number so a
+ * player who "made it up at the end" no longer scores tempo 100.
+ */
+function tempoRmsDeviation(expected: number[], taps: number[], n: number): number {
+  if (n < 2) return 0;
+  let sumSqDev = 0;
+  let count = 0;
+  for (let i = 0; i < n - 1; i++) {
+    const expIoi = expected[i + 1] - expected[i];
+    if (expIoi <= 1e-6) continue;
+    const tapIoi = taps[i + 1] - taps[i];
+    const ratio = tapIoi / expIoi;
+    const dev = ratio - 1;
+    sumSqDev += dev * dev;
+    count++;
+  }
+  if (count === 0) return 0;
+  return Math.sqrt(sumSqDev / count);
+}
+
 const MISS_MS = 120;
 // A miss — whether a way-off tap or a note the player didn't reach — feeds
 // this fixed penalty into the rhythm calculation. Matched residuals are
@@ -151,7 +176,12 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
 
   const tempoFactor = matchedCount >= 2 ? slope : 1;
   const tempoIntercept = 0;
-  const tempoScore = Math.max(0, Math.round(100 * (1 - 2 * Math.abs(tempoFactor - 1))));
+  // Tempo score is driven by the RMS deviation of local IOI ratios from 1.0
+  // (k = 300), not just the overall slope. This means a player who rushed
+  // mid-pattern and recovered by the end gets a lower tempo score than one
+  // who held a steady (even if slightly off) tempo throughout.
+  const tempoRms = matchedCount >= 2 ? tempoRmsDeviation(expectedOnsets, taps, matchedCount) : 0;
+  const tempoScore = Math.max(0, Math.round(100 - 300 * tempoRms));
   // Signed: positive = fast, negative = slow.
   const tempoPct = tempoFactor > 0 ? (1 / tempoFactor - 1) * 100 : 0;
 

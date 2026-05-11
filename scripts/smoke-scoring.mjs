@@ -22,31 +22,33 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 }
 
 {
-  // 5% fast, perfect rhythm. rhythm=100, tempo=90 → 90.
+  // 5% fast, perfect rhythm. Local IOI ratios all 0.95 → rms = 0.05 →
+  // tempo = 100 − 300·0.05 = 85. rhythm stays 100 because residuals after
+  // tempo correction are 0.
   const taps = expected5.map((t) => t * 0.95);
   const r = scoreRound(expected5, taps);
   assert(r.judgmentCounts.perfect === 5, '5% fast → 5 perfect after correction');
   assert(r.rhythmScore === 100, `5% fast → rhythm 100 (got ${r.rhythmScore})`);
-  assert(r.tempoScore === 90, `5% fast → tempo 90 (got ${r.tempoScore})`);
-  assert(r.totalScore === 90, `5% fast → total 90 (got ${r.totalScore})`);
+  assert(r.tempoScore === 85, `5% fast → tempo 85 (got ${r.tempoScore})`);
+  assert(r.totalScore === 85, `5% fast → total 85 (got ${r.totalScore})`);
   assert(Math.abs(r.tempoFactor - 0.95) < 0.01, 'tempoFactor ≈ 0.95');
 }
 
 {
-  // 10% fast, perfect rhythm. rhythm=100, tempo=80 → 80.
+  // 10% fast: rms = 0.1 → tempo = 70.
   const taps = expected5.map((t) => t * 0.9);
   const r = scoreRound(expected5, taps);
-  assert(r.totalScore === 80, `10% fast → 80 (got ${r.totalScore})`);
-  assert(r.tempoScore === 80, `10% fast → tempo 80`);
+  assert(r.tempoScore === 70, `10% fast → tempo 70 (got ${r.tempoScore})`);
+  assert(r.totalScore === 70, `10% fast → 70 (got ${r.totalScore})`);
 }
 
 {
-  // 30% fast (1.3x speed). rhythm 100, tempo ≈ 54.
+  // 30% fast (1.3x speed): rms ≈ 0.231 → tempo ≈ 31.
   const taps = expected5.map((t) => t / 1.3);
   const r = scoreRound(expected5, taps);
   assert(Math.abs(r.tempoFactor - 1 / 1.3) < 0.01, `1.3x → slope ≈ 0.77 (got ${r.tempoFactor.toFixed(3)})`);
   assert(r.rhythmScore === 100, `1.3x → rhythm 100`);
-  assert(r.tempoScore >= 50 && r.tempoScore <= 58, `1.3x → tempo 50..58 (got ${r.tempoScore})`);
+  assert(r.tempoScore >= 28 && r.tempoScore <= 35, `1.3x → tempo 28..35 (got ${r.tempoScore})`);
 }
 
 {
@@ -62,14 +64,14 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 }
 
 {
-  // On tempo, jittery rhythm. residuals = 0, +50, -50, +50, -50 ms.
-  // After through-origin fit, slope ≈ 1; rhythm drops, tempo stays high.
+  // On-tempo *average* but with mid-pattern rushing/slowing. Median ratio
+  // ≈ 1, so the old slope-only tempo gave 100; the new RMS formula picks
+  // up the local IOI fluctuations so tempo drops too.
   const taps = [0, 0.55, 0.95, 1.55, 1.95];
   const r = scoreRound(expected5, taps);
-  assert(Math.abs(r.tempoFactor - 1) < 0.05, 'jittery on tempo → factor ≈ 1');
-  assert(r.tempoScore >= 90, `jittery → tempo stays high (got ${r.tempoScore})`);
+  assert(Math.abs(r.tempoFactor - 1) < 0.05, 'jittery → median slope ≈ 1');
+  assert(r.tempoScore < 60, `jittery → tempo drops with IOI variance (got ${r.tempoScore})`);
   assert(r.rhythmScore < 80, `jittery → rhythm drops (got ${r.rhythmScore})`);
-  assert(r.totalScore < 80, `jittery → total < 80 (got ${r.totalScore})`);
 }
 
 {
