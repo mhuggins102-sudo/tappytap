@@ -1,7 +1,6 @@
 import type { Judgment, JudgmentOrExtra, RoundResult, TapResult } from '../patterns/types';
 
 const WINDOW_MS = 150;
-const EXTRA_PENALTY = 20;
 
 interface TierRange {
   maxMs: number;
@@ -38,6 +37,10 @@ export interface LiveMatch {
   points: number;
 }
 
+export function extraPenaltyFor(expectedCount: number): number {
+  return expectedCount > 0 ? 100 / expectedCount : 0;
+}
+
 export function matchTapLive(tap: number, expected: number[], used: Set<number>): LiveMatch {
   let bestIdx = -1;
   let bestDist = Infinity;
@@ -55,11 +58,11 @@ export function matchTapLive(tap: number, expected: number[], used: Set<number>)
     const { judgment, points } = judge(errorMs);
     return { expectedIdx: bestIdx, errorMs, judgment, points };
   }
-  return { expectedIdx: null, errorMs: null, judgment: 'extra', points: -EXTRA_PENALTY };
+  return { expectedIdx: null, errorMs: null, judgment: 'extra', points: -extraPenaltyFor(expected.length) };
 }
 
 export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundResult {
-  const taps = [...tapsSec].sort((a, b) => a - b).slice(0, expectedOnsets.length);
+  const taps = [...tapsSec].sort((a, b) => a - b);
   const used = new Set<number>();
   const matched: Array<TapResult & { _order: number }> = [];
   let rawScore = 0;

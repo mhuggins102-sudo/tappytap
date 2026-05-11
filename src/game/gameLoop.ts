@@ -17,7 +17,6 @@ const COUNTDOWN_BEATS = 4;
 const ECHO_GAP_SEC = 0.8;
 const ECHO_TAIL_SEC = 0.5;
 const FIRST_TAP_TIMEOUT_SEC = 3;
-const COMPLETION_FINALIZE_DELAY_MS = 400;
 
 let pendingTimers: number[] = [];
 let releaseCapture: (() => void) | null = null;
@@ -179,8 +178,6 @@ function enterEchoPhase(
     const phase = gameStore.get().phase;
     if (phase.kind !== 'echoing') return;
 
-    if (currentTaps.length >= pattern.onsets.length) return;
-
     playFeedbackClick(ctx);
 
     if (phase.echoStartTime === null) {
@@ -208,34 +205,23 @@ function enterEchoPhase(
         teardownCapture();
         finalizeRound(pattern, difficulty, isDailyChallenge, isPractice);
       }, finalizeMs);
-    } else {
-      const rel = audioTime - phase.echoStartTime;
-      const match = matchTapLive(rel, pattern.onsets, matchedExpected);
-      if (match.expectedIdx !== null) matchedExpected.add(match.expectedIdx);
-      currentTaps.push(rel);
-      currentJudgments.push(match.judgment);
-      gameStore.set({
-        ...gameStore.get(),
-        phase: {
-          ...phase,
-          taps: [...currentTaps],
-          tapJudgments: [...currentJudgments],
-          lastFlash: { judgment: match.judgment, at: audioTime },
-        },
-      });
+      return;
     }
 
-    if (currentTaps.length >= pattern.onsets.length) {
-      if (finalizeTimer !== null) {
-        window.clearTimeout(finalizeTimer);
-        finalizeTimer = null;
-      }
-      finalizeTimer = window.setTimeout(() => {
-        finalizeTimer = null;
-        teardownCapture();
-        finalizeRound(pattern, difficulty, isDailyChallenge, isPractice);
-      }, COMPLETION_FINALIZE_DELAY_MS);
-    }
+    const rel = audioTime - phase.echoStartTime;
+    const match = matchTapLive(rel, pattern.onsets, matchedExpected);
+    if (match.expectedIdx !== null) matchedExpected.add(match.expectedIdx);
+    currentTaps.push(rel);
+    currentJudgments.push(match.judgment);
+    gameStore.set({
+      ...gameStore.get(),
+      phase: {
+        ...phase,
+        taps: [...currentTaps],
+        tapJudgments: [...currentJudgments],
+        lastFlash: { judgment: match.judgment, at: audioTime },
+      },
+    });
   });
 }
 
