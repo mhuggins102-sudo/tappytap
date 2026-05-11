@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { handlePointerTap } from '../game/inputCapture';
 import { getEngine } from '../audio/audioContext';
 import type { Phase } from '../game/stateMachine';
-import type { JudgmentOrExtra } from '../patterns/types';
+import type { Judgment } from '../patterns/types';
 import { loadSettings } from '../lib/storage';
 
 interface Props {
@@ -13,13 +13,12 @@ interface Props {
 const COUNTDOWN_LABELS = ['3', '2', '1', 'GO!'];
 const FLASH_DECAY_SEC = 0.3;
 
-const JUDGMENT_COLOR_VAR: Record<JudgmentOrExtra, string> = {
+const JUDGMENT_COLOR_VAR: Record<Judgment, string> = {
   perfect: 'var(--perfect)',
   great: 'var(--great)',
+  good: 'var(--good)',
   ok: 'var(--ok)',
-  off: 'var(--off)',
   miss: 'var(--miss)',
-  extra: 'var(--extra)',
 };
 
 export function TapTarget({ phase, disabled }: Props) {

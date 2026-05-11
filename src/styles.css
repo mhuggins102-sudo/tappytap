@@ -5,12 +5,11 @@
   --fg-dim: #8a93a6;
   --accent: #7c5cff;
   --accent-2: #19d3a2;
-  --perfect: #19d3a2;
-  --great: #7c5cff;
+  --perfect: #7c5cff;
+  --great: #19d3a2;
+  --good: #84cc16;
   --ok: #f1c40f;
-  --off: #f08a00;
   --miss: #e74c3c;
-  --extra: #ff8a3d;
   --radius: 14px;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
   color-scheme: dark;
@@ -494,10 +493,9 @@ button {
 
 .dot--perfect { background: var(--perfect); }
 .dot--great { background: var(--great); }
+.dot--good { background: var(--good); }
 .dot--ok { background: var(--ok); }
-.dot--off { background: var(--off); }
 .dot--miss { background: var(--miss); opacity: 0.6; }
-.dot--extra { background: var(--extra); }
 
 .judgment-summary {
   display: flex;
@@ -533,10 +531,9 @@ button {
 
 .tally--perfect .tally__n { color: var(--perfect); }
 .tally--great .tally__n { color: var(--great); }
+.tally--good .tally__n { color: var(--good); }
 .tally--ok .tally__n { color: var(--ok); }
-.tally--off .tally__n { color: var(--off); }
 .tally--miss .tally__n { color: var(--miss); }
-.tally--extra .tally__n { color: var(--extra); }
 
 .score-actions {
   display: flex;
@@ -633,10 +630,9 @@ button {
 .timeline-dot--expected { background: #c7cad6; }
 .timeline-dot--perfect { background: var(--perfect); }
 .timeline-dot--great { background: var(--great); }
+.timeline-dot--good { background: var(--good); }
 .timeline-dot--ok { background: var(--ok); }
-.timeline-dot--off { background: var(--off); }
 .timeline-dot--miss { background: var(--miss); opacity: 0.7; }
-.timeline-dot--extra { background: var(--extra); }
 
 .timeline-dot--early {
   box-shadow:
@@ -730,10 +726,9 @@ button {
 .practice-dot--expected { background: #c7cad6; }
 .practice-dot--perfect { background: var(--perfect); }
 .practice-dot--great { background: var(--great); }
+.practice-dot--good { background: var(--good); }
 .practice-dot--ok { background: var(--ok); }
-.practice-dot--off { background: var(--off); }
 .practice-dot--miss { background: var(--miss); opacity: 0.7; }
-.practice-dot--extra { background: var(--extra); }
 
 .score-headline__badge--practice {
   background: linear-gradient(135deg, #f1c40f, #c89c0d);
@@ -745,7 +740,7 @@ button {
   grid-template-columns: 1fr 1fr;
   gap: 10px;
   width: 100%;
-  max-width: 440px;
+  max-width: 360px;
 }
 
 .subscore {
