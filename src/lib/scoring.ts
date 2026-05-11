@@ -78,28 +78,36 @@ function fitSlopeMedianRatio(expected: number[], taps: number[], n: number): num
 }
 
 /**
- * Tempo stability — RMS deviation of local IOI ratios from 1.0. Captures
- * BOTH consistent offset (all ratios = 1.1 ⇒ rms = 0.1) AND mid-pattern
- * fluctuation (ratios bouncing between 0.85 and 1.15 also gives a high
- * rms even if their mean is 1). The displayed tempo % still comes from the
- * median-ratio slope, but the tempoScore is driven by this number so a
- * player who "made it up at the end" no longer scores tempo 100.
+ * Tempo statistics computed from local IOI ratios. The score uses RMS so
+ * mid-pattern fluctuation hurts even if the median ends up at 1.0. The
+ * other two means feed the displayed % and the direction label.
  */
-function tempoRmsDeviation(expected: number[], taps: number[], n: number): number {
-  if (n < 2) return 0;
-  let sumSqDev = 0;
+function tempoStatistics(
+  expected: number[],
+  taps: number[],
+  n: number,
+): { rms: number; meanAbsDev: number; meanDev: number } {
+  if (n < 2) return { rms: 0, meanAbsDev: 0, meanDev: 0 };
+  let sumSq = 0;
+  let sumAbs = 0;
+  let sumSigned = 0;
   let count = 0;
   for (let i = 0; i < n - 1; i++) {
     const expIoi = expected[i + 1] - expected[i];
     if (expIoi <= 1e-6) continue;
     const tapIoi = taps[i + 1] - taps[i];
-    const ratio = tapIoi / expIoi;
-    const dev = ratio - 1;
-    sumSqDev += dev * dev;
+    const dev = tapIoi / expIoi - 1;
+    sumSq += dev * dev;
+    sumAbs += Math.abs(dev);
+    sumSigned += dev;
     count++;
   }
-  if (count === 0) return 0;
-  return Math.sqrt(sumSqDev / count);
+  if (count === 0) return { rms: 0, meanAbsDev: 0, meanDev: 0 };
+  return {
+    rms: Math.sqrt(sumSq / count),
+    meanAbsDev: sumAbs / count,
+    meanDev: sumSigned / count,
+  };
 }
 
 const MISS_MS = 120;
@@ -180,10 +188,27 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
   // (k = 300), not just the overall slope. This means a player who rushed
   // mid-pattern and recovered by the end gets a lower tempo score than one
   // who held a steady (even if slightly off) tempo throughout.
-  const tempoRms = matchedCount >= 2 ? tempoRmsDeviation(expectedOnsets, taps, matchedCount) : 0;
-  const tempoScore = Math.max(0, Math.round(100 - 300 * tempoRms));
-  // Signed: positive = fast, negative = slow.
-  const tempoPct = tempoFactor > 0 ? (1 / tempoFactor - 1) * 100 : 0;
+  const tStats = matchedCount >= 2
+    ? tempoStatistics(expectedOnsets, taps, matchedCount)
+    : { rms: 0, meanAbsDev: 0, meanDev: 0 };
+  const tempoScore = Math.max(0, Math.round(100 - 300 * tStats.rms));
+  // Displayed magnitude: typical (mean absolute) local IOI deviation. This
+  // tracks what the score actually penalizes, so the % the player sees stays
+  // in step with the number.
+  const tempoPct = Math.round(tStats.meanAbsDev * 100);
+  // Direction: 'fast' or 'slow' only when the signed mean is dominant enough
+  // (≥ 50% of the absolute mean) to be the obvious story; otherwise the
+  // fluctuations roughly cancel and we label it 'mixed' so the player knows
+  // they were unsteady rather than systematically off.
+  let tempoDirection: 'fast' | 'slow' | 'mixed' | 'on';
+  if (tStats.meanAbsDev < 0.005) {
+    tempoDirection = 'on';
+  } else if (Math.abs(tStats.meanDev) > 0.5 * tStats.meanAbsDev) {
+    // Negative dev = tap_ioi < exp_ioi = playing faster.
+    tempoDirection = tStats.meanDev < 0 ? 'fast' : 'slow';
+  } else {
+    tempoDirection = 'mixed';
+  }
 
   const completeness = expectedCount > 0 ? successCount / expectedCount : 1;
 
@@ -204,6 +229,7 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
     rhythmScore,
     tempoScore,
     tempoPct,
+    tempoDirection,
     completenessPct: Math.round(completeness * 100),
     meanAbsErrorMs,
   };
