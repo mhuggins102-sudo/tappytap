@@ -78,16 +78,18 @@ function fitSlopeMedianRatio(expected: number[], taps: number[], n: number): num
 }
 
 /**
- * Tempo statistics computed from local IOI ratios. The score and the
- * displayed % both come from meanAbsDev, so they move together: each
- * percent of typical IOI deviation costs 2 points (5% off ⇒ 90, 10% ⇒ 80).
+ * Tempo statistics computed from local IOI ratios. The score uses RMS so a
+ * single very-late or very-early IOI is felt; the signed mean drives the
+ * direction label (fast / slow / mixed). RMS also feeds the displayed %
+ * so the score and the % move together.
  */
 function tempoStatistics(
   expected: number[],
   taps: number[],
   n: number,
-): { meanAbsDev: number; meanDev: number } {
-  if (n < 2) return { meanAbsDev: 0, meanDev: 0 };
+): { rms: number; meanAbsDev: number; meanDev: number } {
+  if (n < 2) return { rms: 0, meanAbsDev: 0, meanDev: 0 };
+  let sumSq = 0;
   let sumAbs = 0;
   let sumSigned = 0;
   let count = 0;
@@ -96,12 +98,14 @@ function tempoStatistics(
     if (expIoi <= 1e-6) continue;
     const tapIoi = taps[i + 1] - taps[i];
     const dev = tapIoi / expIoi - 1;
+    sumSq += dev * dev;
     sumAbs += Math.abs(dev);
     sumSigned += dev;
     count++;
   }
-  if (count === 0) return { meanAbsDev: 0, meanDev: 0 };
+  if (count === 0) return { rms: 0, meanAbsDev: 0, meanDev: 0 };
   return {
+    rms: Math.sqrt(sumSq / count),
     meanAbsDev: sumAbs / count,
     meanDev: sumSigned / count,
   };
@@ -181,15 +185,17 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
 
   const tempoFactor = matchedCount >= 2 ? slope : 1;
   const tempoIntercept = 0;
-  // Score and displayed % both use meanAbsDev so the two stay in lockstep:
-  // tempoScore ≈ 100 − 2 × tempoPct (each percent of typical IOI deviation
-  // costs 2 points). Captures both consistent off-pace AND mid-pattern
-  // wobble — both raise meanAbsDev.
-  const tStats = matchedCount >= 2
+  // Score and displayed % both use RMS so they stay in step. RMS weights
+  // single-beat outliers more heavily than meanAbsDev, so a sudden mid-
+  // pattern lurch costs more than the same total deviation spread evenly.
+  const hasTempoData = matchedCount >= 2;
+  const tStats = hasTempoData
     ? tempoStatistics(expectedOnsets, taps, matchedCount)
-    : { meanAbsDev: 0, meanDev: 0 };
-  const tempoScore = Math.max(0, Math.round(100 - 200 * tStats.meanAbsDev));
-  const tempoPct = Math.round(tStats.meanAbsDev * 100);
+    : { rms: 0, meanAbsDev: 0, meanDev: 0 };
+  const tempoScore = hasTempoData
+    ? Math.max(0, Math.round(100 - 300 * tStats.rms))
+    : 0;
+  const tempoPct = Math.round(tStats.rms * 100);
   // Direction: 'fast' or 'slow' only when the signed mean is dominant enough
   // (≥ 50% of the absolute mean) to be the obvious story; otherwise the
   // fluctuations roughly cancel and we label it 'mixed' so the player knows
@@ -206,10 +212,10 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
 
   const completeness = expectedCount > 0 ? successCount / expectedCount : 1;
 
-  const totalScore =
-    matchedCount === 0
-      ? 0
-      : Math.max(0, Math.round((rhythmScore * tempoScore) / 100));
+  // Total = simple average of the two visible subscores so the headline
+  // never reads lower than your skill on either dimension. Two 60s give
+  // 60, not 36 (which is what the multiplicative formula produced).
+  const totalScore = Math.max(0, Math.round((rhythmScore + tempoScore) / 2));
 
   const accuracyPct = Math.round(completeness * 100);
 
