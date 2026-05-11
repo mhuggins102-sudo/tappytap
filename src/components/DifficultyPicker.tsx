@@ -6,7 +6,16 @@ import {
   loadSettings,
   saveSettings,
   type HighScores,
+  type Instrument,
 } from '../lib/storage';
+
+const INSTRUMENTS: Array<{ id: Instrument; label: string }> = [
+  { id: 'drums', label: 'Drums' },
+  { id: 'marimba', label: 'Marimba' },
+  { id: 'piano', label: 'Piano' },
+  { id: 'synth', label: 'Synth lead' },
+  { id: 'bass', label: 'Synth bass' },
+];
 import { loadDailyEntry } from '../lib/storage';
 import { todayUtcDateString } from '../patterns/daily';
 import type { Difficulty } from '../patterns/types';
@@ -22,7 +31,8 @@ export function DifficultyPicker() {
   const [dailyDone, setDailyDone] = useState(false);
   const [liveFeedback, setLiveFeedback] = useState(true);
   const [practiceMode, setPracticeMode] = useState(false);
-  const [grooveSounds, setGrooveSounds] = useState(false);
+  const [grooveSounds, setGrooveSounds] = useState(true);
+  const [instrument, setInstrument] = useState<Instrument>('drums');
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
@@ -32,7 +42,13 @@ export function DifficultyPicker() {
     setLiveFeedback(s.liveFeedback);
     setPracticeMode(s.practiceMode);
     setGrooveSounds(s.soundTheme === 'groove');
+    setInstrument(s.instrument);
   }, []);
+
+  const onChangeInstrument = (next: Instrument) => {
+    setInstrument(next);
+    saveSettings({ instrument: next });
+  };
 
   const onToggleLive = () => {
     const next = !liveFeedback;
@@ -144,9 +160,14 @@ export function DifficultyPicker() {
             />
             <SettingRow
               label="Groove sounds"
-              hint="Drums instead of clicks"
+              hint="Drums / instruments instead of clicks"
               on={grooveSounds}
               onToggle={onToggleGroove}
+            />
+            <InstrumentRow
+              value={instrument}
+              onChange={onChangeInstrument}
+              disabled={!grooveSounds}
             />
             {(scores?.easy?.games || scores?.medium?.games || scores?.hard?.games) ? (
               <button
@@ -191,5 +212,40 @@ function SettingRow({ label, hint, on, onToggle, disabled }: SettingRowProps) {
         <span className="setting-row__knob" />
       </span>
     </button>
+  );
+}
+
+function InstrumentRow({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: Instrument;
+  onChange: (next: Instrument) => void;
+  disabled: boolean;
+}) {
+  return (
+    <label
+      className={`setting-row setting-row--dropdown ${disabled ? 'setting-row--disabled' : ''}`}
+    >
+      <span className="setting-row__text">
+        <span className="setting-row__label">Instrument</span>
+        <span className="setting-row__hint">
+          {disabled ? 'Turn on Groove sounds to choose' : 'Voicing for groove sounds'}
+        </span>
+      </span>
+      <select
+        className="setting-row__select"
+        value={value}
+        onChange={(e) => onChange(e.target.value as Instrument)}
+        disabled={disabled}
+      >
+        {INSTRUMENTS.map((inst) => (
+          <option key={inst.id} value={inst.id}>
+            {inst.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

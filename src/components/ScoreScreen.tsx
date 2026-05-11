@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GameState } from '../game/stateMachine';
 import type { RoundResult } from '../patterns/types';
-import { goToPicker, playAgain } from '../game/gameLoop';
+import { goToPicker, playAgain, tryAgain } from '../game/gameLoop';
 import { loadHighScores } from '../lib/storage';
 import { loadDailyEntry } from '../lib/storage';
 import { todayUtcDateString } from '../patterns/daily';
@@ -41,6 +41,7 @@ export function ScoreScreen({ state }: Props) {
   const isNewBest =
     !state.isDailyChallenge &&
     !state.isPractice &&
+    !state.isReplay &&
     bestScore !== null &&
     result.totalScore === bestScore;
 
@@ -64,6 +65,9 @@ export function ScoreScreen({ state }: Props) {
         <div className="score-headline__label">Overall</div>
         {isNewBest && <div className="score-headline__badge">New best!</div>}
         {state.isPractice && <div className="score-headline__badge score-headline__badge--practice">Practice — not saved</div>}
+        {state.isReplay && !state.isPractice && (
+          <div className="score-headline__badge score-headline__badge--practice">Replay — not saved</div>
+        )}
       </div>
 
       <SubScores result={result} />
@@ -81,9 +85,14 @@ export function ScoreScreen({ state }: Props) {
 
       <div className="score-actions">
         {!state.isDailyChallenge && (
-          <button className="btn btn--primary" type="button" onClick={playAgain}>
-            Play again
-          </button>
+          <>
+            <button className="btn btn--primary" type="button" onClick={tryAgain}>
+              Try again
+            </button>
+            <button className="btn" type="button" onClick={playAgain}>
+              New beat
+            </button>
+          </>
         )}
         <button className="btn" type="button" onClick={goToPicker}>
           Change level

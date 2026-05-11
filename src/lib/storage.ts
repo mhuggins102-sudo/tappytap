@@ -4,6 +4,9 @@ const HIGHSCORES_KEY = 'tappytap.highscores';
 const DAILY_KEY = 'tappytap.daily';
 const SETTINGS_KEY = 'tappytap.settings';
 const VERSION = 2;
+// Settings has its own version so we can ship new defaults (and add fields
+// like `instrument`) without invalidating high-score and daily-challenge data.
+const SETTINGS_VERSION = 3;
 
 export interface DifficultyRecord {
   bestScore: number;
@@ -112,30 +115,33 @@ export function saveDailyEntry(entry: Omit<DailyEntry, 'v'>): void {
 }
 
 export type SoundTheme = 'tones' | 'groove';
+export type Instrument = 'drums' | 'marimba' | 'bass' | 'synth' | 'piano';
 
 export interface Settings {
   v: number;
   liveFeedback: boolean;
   practiceMode: boolean;
   soundTheme: SoundTheme;
+  instrument: Instrument;
 }
 
 const DEFAULT_SETTINGS: Settings = {
-  v: VERSION,
-  liveFeedback: true,
+  v: SETTINGS_VERSION,
+  liveFeedback: false,
   practiceMode: false,
-  soundTheme: 'tones',
+  soundTheme: 'groove',
+  instrument: 'drums',
 };
 
 export function loadSettings(): Settings {
   const parsed = safeParse<Partial<Settings>>(localStorage.getItem(SETTINGS_KEY));
-  if (!parsed || parsed.v !== VERSION) return { ...DEFAULT_SETTINGS };
+  if (!parsed || parsed.v !== SETTINGS_VERSION) return { ...DEFAULT_SETTINGS };
   return { ...DEFAULT_SETTINGS, ...parsed };
 }
 
 export function saveSettings(next: Partial<Omit<Settings, 'v'>>): Settings {
   const current = loadSettings();
-  const merged: Settings = { ...current, ...next, v: VERSION };
+  const merged: Settings = { ...current, ...next, v: SETTINGS_VERSION };
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
   return merged;
 }
