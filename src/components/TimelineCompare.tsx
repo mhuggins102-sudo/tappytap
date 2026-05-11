@@ -68,19 +68,11 @@ export function TimelineCompare({ pattern, result }: Props) {
           <div className="timeline__track timeline__track--actual">
             {result.taps.map((tap, i) => {
               if (tap.tapTime === null) return null;
-              const tint =
-                tap.rawErrorMs === null
-                  ? ''
-                  : tap.rawErrorMs < -2
-                    ? ' timeline-dot--early'
-                    : tap.rawErrorMs > 2
-                      ? ' timeline-dot--late'
-                      : '';
               const pos = corrected ? onTempo(tap.tapTime) : tap.tapTime;
               return (
                 <span
                   key={i}
-                  className={`timeline-dot timeline-dot--${tap.judgment} timeline-dot--animated${tint}`}
+                  className={`timeline-dot timeline-dot--${tap.judgment} timeline-dot--animated`}
                   style={{ left: `${(pos / denom) * 100}%` }}
                   title={titleFor(tap)}
                 />

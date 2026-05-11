@@ -637,17 +637,6 @@ button {
 .timeline-dot--ok { background: var(--ok); }
 .timeline-dot--miss { background: var(--miss); opacity: 0.7; }
 
-.timeline-dot--early {
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.35),
-    -2px 0 0 0 rgba(255, 255, 255, 0.55);
-}
-.timeline-dot--late {
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.35),
-    2px 0 0 0 rgba(255, 255, 255, 0.55);
-}
-
 .timeline__track--corrected {
   background: rgba(255, 255, 255, 0.03);
   height: 14px;
