@@ -79,17 +79,28 @@ export function DifficultyPicker() {
               type="button"
               onClick={() => void startRound(lvl.id)}
             >
-              <div className="picker-card__label">{lvl.label}</div>
-              <div className="picker-card__blurb">{lvl.blurb}</div>
-              <div className="picker-card__best">
-                {best ? `Best ${best.bestScore}` : 'No best yet'}
+              <div className="picker-card__primary">
+                <div className="picker-card__label">{lvl.label}</div>
+                <div className="picker-card__blurb">{lvl.blurb}</div>
               </div>
-              {best && best.games > 0 && (
-                <div className="picker-card__avg">
-                  Avg {Math.round(best.totalScore / best.games)} (
-                  {Math.round(best.totalRhythm / best.games)} rhythm · {Math.round(best.totalTempo / best.games)} tempo) ({best.games} {best.games === 1 ? 'play' : 'plays'})
-                </div>
-              )}
+              <div className="picker-card__stats">
+                {best && best.games > 0 ? (
+                  <>
+                    <div className="picker-card__best">Best {best.bestScore}</div>
+                    <div className="picker-card__avg">
+                      Avg {Math.round(best.totalScore / best.games)}
+                    </div>
+                    <div className="picker-card__sub">
+                      {Math.round(best.totalRhythm / best.games)}r · {Math.round(best.totalTempo / best.games)}t
+                    </div>
+                    <div className="picker-card__sub">
+                      {best.games} {best.games === 1 ? 'play' : 'plays'}
+                    </div>
+                  </>
+                ) : (
+                  <div className="picker-card__no-best">No best yet</div>
+                )}
+              </div>
             </button>
           );
         })}

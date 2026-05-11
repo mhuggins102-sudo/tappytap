@@ -25,8 +25,10 @@ const JUDGMENT_COLOR_VAR: Record<JudgmentOrExtra, string> = {
 export function TapTarget({ phase, disabled }: Props) {
   const ref = useRef<HTMLButtonElement | null>(null);
   const labelRef = useRef<HTMLSpanElement | null>(null);
+  const subLabelRef = useRef<HTMLSpanElement | null>(null);
   const flashRef = useRef<HTMLSpanElement | null>(null);
   const lastLabelRef = useRef<string>('');
+  const lastSubLabelRef = useRef<string>('');
   const liveFeedbackRef = useRef<boolean>(true);
 
   useEffect(() => {
@@ -55,6 +57,7 @@ export function TapTarget({ phase, disabled }: Props) {
       const eng = getEngine();
       const el = ref.current;
       const labelEl = labelRef.current;
+      const subLabelEl = subLabelRef.current;
       const flashEl = flashRef.current;
       if (eng && el) {
         const now = eng.audioTimeNow();
@@ -65,6 +68,12 @@ export function TapTarget({ phase, disabled }: Props) {
         if (labelEl && label !== lastLabelRef.current) {
           lastLabelRef.current = label;
           labelEl.textContent = label;
+        }
+
+        const subLabel = computeSubLabel(phase, now);
+        if (subLabelEl && subLabel !== lastSubLabelRef.current) {
+          lastSubLabelRef.current = subLabel;
+          subLabelEl.textContent = subLabel;
         }
 
         if (flashEl) {
@@ -92,9 +101,27 @@ export function TapTarget({ phase, disabled }: Props) {
     >
       <span className="tap-target__ring" />
       <span ref={flashRef} className="tap-target__flash" />
-      <span ref={labelRef} className="tap-target__label">{computeLabel(phase, 0)}</span>
+      <span className="tap-target__label-stack">
+        <span ref={labelRef} className="tap-target__label">{computeLabel(phase, 0)}</span>
+        <span ref={subLabelRef} className="tap-target__sublabel">{computeSubLabel(phase, 0)}</span>
+      </span>
     </button>
   );
+}
+
+function computeSubLabel(phase: Phase, now: number): string {
+  if (phase.kind === 'listening') {
+    const total = phase.pattern.onsets.length;
+    const t = now - phase.patternStartTime;
+    let count = 0;
+    for (let i = 0; i < total; i++) {
+      if (t >= phase.pattern.onsets[i]) count = i + 1;
+      else break;
+    }
+    if (count === 0) return `0 / ${total}`;
+    return `${count} / ${total}`;
+  }
+  return '';
 }
 
 function computeLabel(phase: Phase, now: number): string {
