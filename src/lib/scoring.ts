@@ -2,6 +2,7 @@ import type { Judgment, JudgmentOrExtra, RoundResult, TapResult } from '../patte
 
 const WINDOW_MS = 150;
 const WINDOW_SEC = WINDOW_MS / 1000;
+const TEMPO_SENSITIVITY = 2;
 
 interface TierRange {
   maxMs: number;
@@ -192,9 +193,14 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
   const completeness = expectedCount > 0 ? matchCount / expectedCount : 1;
   const precision = totalTaps > 0 ? matchCount / totalTaps : 0;
 
-  const totalScore = Math.max(0, Math.round(avgMatchQuality * completeness * precision));
-  const accuracyPct = totalTaps > 0 ? Math.round(precision * 100) : 0;
   const tempoFactor = matchCount >= 2 ? slope : 1;
+  const tempoQuality = Math.max(0, 1 - TEMPO_SENSITIVITY * Math.abs(tempoFactor - 1));
+
+  const totalScore = Math.max(
+    0,
+    Math.round(avgMatchQuality * completeness * precision * tempoQuality),
+  );
+  const accuracyPct = totalTaps > 0 ? Math.round(precision * 100) : 0;
 
   return { taps: results, totalScore, accuracyPct, judgmentCounts: counts, tempoFactor };
 }

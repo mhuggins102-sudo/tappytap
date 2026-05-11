@@ -20,24 +20,31 @@ const expected = [0, 0.5, 1.0];
 }
 
 {
-  // 5% fast, perfect rhythm
+  // 5% fast, perfect rhythm: rhythm is 100, tempo penalty is 10% (sensitivity 2)
   const exp = [0, 0.5, 1.0, 1.5, 2.0];
   const taps = exp.map((t) => t * 0.95);
   const r = scoreRound(exp, taps);
   assert(r.judgmentCounts.perfect === 5, '5% fast perfect rhythm → 5 perfect after correction');
-  assert(r.totalScore === 100, `5% fast perfect rhythm → score 100 (got ${r.totalScore})`);
+  assert(r.totalScore === 90, `5% fast → 90 (got ${r.totalScore})`);
   assert(Math.abs(r.tempoFactor - 0.95) < 0.01, `tempoFactor ≈ 0.95 (got ${r.tempoFactor.toFixed(3)})`);
 }
 
 {
-  // 10% fast, perfect rhythm — last tap drifts outside raw window
+  // 10% fast, perfect rhythm: rhythm is 100, tempo penalty is 20%
   const exp = [0, 0.5, 1.0, 1.5, 2.0];
   const taps = exp.map((t) => t * 0.9);
   const r = scoreRound(exp, taps);
-  // After two-pass correction the last tap should be reclaimed
   assert(r.judgmentCounts.perfect === 5, `10% fast → 5 perfect after correction (got perfect=${r.judgmentCounts.perfect})`);
-  assert(r.totalScore === 100, `10% fast → score 100 (got ${r.totalScore})`);
+  assert(r.totalScore === 80, `10% fast → 80 (got ${r.totalScore})`);
   assert(Math.abs(r.tempoFactor - 0.9) < 0.01, `tempoFactor ≈ 0.9 (got ${r.tempoFactor.toFixed(3)})`);
+}
+
+{
+  // 2% fast, perfect rhythm: tempo penalty 4%
+  const exp = [0, 0.5, 1.0, 1.5, 2.0];
+  const taps = exp.map((t) => t * 0.98);
+  const r = scoreRound(exp, taps);
+  assert(r.totalScore === 96, `2% fast → 96 (got ${r.totalScore})`);
 }
 
 {
@@ -92,11 +99,11 @@ const expected = [0, 0.5, 1.0];
 }
 
 {
-  // Off tempo + intentionally bad rhythm: should NOT score 100 from correction
+  // Off tempo + intentionally bad rhythm: both factors should hurt the score
   const exp = [0, 0.5, 1.0, 1.5, 2.0];
   // Each tap is 5% fast PLUS individual jitter of ±50ms
   const taps = [0, 0.475 + 0.05, 0.95 - 0.05, 1.425 + 0.05, 1.9 - 0.05];
   const r = scoreRound(exp, taps);
-  assert(r.totalScore < 92, `off-tempo + bad rhythm → < 92 (got ${r.totalScore})`);
-  assert(r.totalScore > 70, `off-tempo + bad rhythm → still respectable (got ${r.totalScore})`);
+  assert(r.totalScore < 80, `off-tempo + bad rhythm → < 80 (got ${r.totalScore})`);
+  assert(r.totalScore > 40, `off-tempo + bad rhythm → > 40 (got ${r.totalScore})`);
 }
