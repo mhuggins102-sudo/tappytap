@@ -37,10 +37,6 @@ export interface LiveMatch {
   points: number;
 }
 
-export function extraPenaltyFor(expectedCount: number): number {
-  return expectedCount > 0 ? 100 / expectedCount : 0;
-}
-
 export function matchTapLive(tap: number, expected: number[], used: Set<number>): LiveMatch {
   let bestIdx = -1;
   let bestDist = Infinity;
@@ -58,19 +54,23 @@ export function matchTapLive(tap: number, expected: number[], used: Set<number>)
     const { judgment, points } = judge(errorMs);
     return { expectedIdx: bestIdx, errorMs, judgment, points };
   }
-  return { expectedIdx: null, errorMs: null, judgment: 'extra', points: -extraPenaltyFor(expected.length) };
+  return { expectedIdx: null, errorMs: null, judgment: 'extra', points: 0 };
 }
 
 export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundResult {
   const taps = [...tapsSec].sort((a, b) => a - b);
   const used = new Set<number>();
   const matched: Array<TapResult & { _order: number }> = [];
-  let rawScore = 0;
+  let matchedPoints = 0;
+  let matchCount = 0;
 
   for (const tap of taps) {
     const m = matchTapLive(tap, expectedOnsets, used);
-    if (m.expectedIdx !== null) used.add(m.expectedIdx);
-    rawScore += m.points;
+    if (m.expectedIdx !== null) {
+      used.add(m.expectedIdx);
+      matchedPoints += m.points;
+      matchCount += 1;
+    }
     matched.push({
       _order: m.expectedIdx ?? expectedOnsets.length + matched.length,
       expectedIdx: m.expectedIdx,
@@ -104,10 +104,14 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
   };
   for (const r of results) counts[r.judgment]++;
 
-  const maxScore = expectedOnsets.length * 100;
-  const totalScore = maxScore > 0 ? Math.max(0, Math.round((rawScore / maxScore) * 100)) : 0;
-  const hits = counts.perfect + counts.great + counts.ok;
-  const accuracyPct = expectedOnsets.length > 0 ? Math.round((hits / expectedOnsets.length) * 100) : 0;
+  const totalTaps = taps.length;
+  const expectedCount = expectedOnsets.length;
+  const avgMatchQuality = matchCount > 0 ? matchedPoints / matchCount : 0;
+  const completeness = expectedCount > 0 ? matchCount / expectedCount : 1;
+  const precision = totalTaps > 0 ? matchCount / totalTaps : 0;
+
+  const totalScore = Math.max(0, Math.round(avgMatchQuality * completeness * precision));
+  const accuracyPct = totalTaps > 0 ? Math.round(precision * 100) : 0;
 
   return { taps: results, totalScore, accuracyPct, judgmentCounts: counts };
 }
