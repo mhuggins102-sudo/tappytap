@@ -13,19 +13,19 @@ function assert(cond, msg) {
 
 const easy = generatePattern('easy', rngFromString('seed-a'));
 assert(easy.onsets.length >= 16 && easy.onsets.length <= 20, `easy onsets in 16-20 range (${easy.onsets.length})`);
-assert(easy.onsets[0] === 0, 'easy starts on downbeat');
+assert(easy.onsets[0] === 0, 'easy starts at 0');
 
-// Easy should be a repeating 4-onset motif: every 4th onset should reset to a slot-zero offset
+// Easy is a 4-onset motif repeated; motif slots restricted to first 6 of 8 to leave a trailing gap
 {
   const onsetsPerMotif = 4;
   const groups = easy.onsets.length / onsetsPerMotif;
-  assert(Number.isInteger(groups), `easy onsets divisible by motif length (${easy.onsets.length})`);
+  assert(Number.isInteger(groups), `easy onsets divisible by 4 (${easy.onsets.length})`);
+  const motifDurationSec = easy.durationSec / groups;
   const firstMotif = easy.onsets.slice(0, onsetsPerMotif);
-  const lastMotif = easy.onsets.slice(-onsetsPerMotif);
-  const lastOffset = lastMotif[0];
-  const lastRel = lastMotif.map((o) => o - lastOffset);
-  const allMatch = firstMotif.every((o, i) => Math.abs(o - lastRel[i]) < 1e-9);
-  assert(allMatch, 'easy: last motif matches first motif rhythm');
+  for (const o of firstMotif) {
+    const rel = o;
+    assert(rel <= motifDurationSec * (6 / 8) + 1e-9, `motif onset at ${rel.toFixed(3)}s is in first 6 slots`);
+  }
 }
 
 const medium = generatePattern('medium', rngFromString('seed-b'));

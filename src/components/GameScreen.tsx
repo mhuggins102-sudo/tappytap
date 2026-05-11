@@ -1,4 +1,5 @@
 import { TapTarget } from './TapTarget';
+import { PracticeOverlay } from './PracticeOverlay';
 import type { GameState, Phase } from '../game/stateMachine';
 
 interface Props {
@@ -7,13 +8,17 @@ interface Props {
 
 export function GameScreen({ state }: Props) {
   const phase = state.phase;
+  const showPractice = state.isPractice && phase.kind === 'echoing';
 
   return (
     <div className="screen screen--game">
       <div className="game-meta">
-        <span className="game-meta__chip">{state.isDailyChallenge ? 'Daily' : state.difficulty}</span>
+        <span className="game-meta__chip">
+          {state.isDailyChallenge ? 'Daily' : state.isPractice ? 'Practice' : state.difficulty}
+        </span>
         <span className="game-meta__phase">{subtitleFor(phase)}</span>
       </div>
+      {showPractice && phase.kind === 'echoing' && <PracticeOverlay phase={phase} />}
       <TapTarget phase={phase} disabled={phase.kind !== 'echoing'} />
       <div className="game-help">{helpFor(phase)}</div>
     </div>

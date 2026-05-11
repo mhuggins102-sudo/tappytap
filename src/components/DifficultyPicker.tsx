@@ -15,17 +15,26 @@ export function DifficultyPicker() {
   const [scores, setScores] = useState<HighScores | null>(null);
   const [dailyDone, setDailyDone] = useState(false);
   const [liveFeedback, setLiveFeedback] = useState(true);
+  const [practiceMode, setPracticeMode] = useState(false);
 
   useEffect(() => {
     setScores(loadHighScores());
     setDailyDone(loadDailyEntry(todayUtcDateString()) !== null);
-    setLiveFeedback(loadSettings().liveFeedback);
+    const s = loadSettings();
+    setLiveFeedback(s.liveFeedback);
+    setPracticeMode(s.practiceMode);
   }, []);
 
   const onToggleLive = () => {
     const next = !liveFeedback;
     setLiveFeedback(next);
     saveSettings({ liveFeedback: next });
+  };
+
+  const onTogglePractice = () => {
+    const next = !practiceMode;
+    setPracticeMode(next);
+    saveSettings({ practiceMode: next });
   };
 
   return (
@@ -50,24 +59,40 @@ export function DifficultyPicker() {
           );
         })}
       </div>
+
       <button
         className={`btn btn--daily ${dailyDone ? 'btn--done' : ''}`}
         type="button"
         onClick={goToDailyScreen}
+        disabled={practiceMode}
+        title={practiceMode ? 'Disable Practice Mode to play the daily' : undefined}
       >
         Daily challenge {dailyDone ? '✓' : ''}
       </button>
 
-      <button
-        className={`toggle ${liveFeedback ? 'toggle--on' : ''}`}
-        type="button"
-        role="switch"
-        aria-checked={liveFeedback}
-        onClick={onToggleLive}
-      >
-        <span className="toggle__indicator" />
-        <span className="toggle__label">Live timing feedback</span>
-      </button>
+      <div className="toggles">
+        <button
+          className={`toggle ${liveFeedback ? 'toggle--on' : ''}`}
+          type="button"
+          role="switch"
+          aria-checked={liveFeedback}
+          onClick={onToggleLive}
+        >
+          <span className="toggle__indicator" />
+          <span className="toggle__label">Live timing feedback</span>
+        </button>
+
+        <button
+          className={`toggle ${practiceMode ? 'toggle--on' : ''}`}
+          type="button"
+          role="switch"
+          aria-checked={practiceMode}
+          onClick={onTogglePractice}
+        >
+          <span className="toggle__indicator" />
+          <span className="toggle__label">Practice mode (no scores saved)</span>
+        </button>
+      </div>
     </div>
   );
 }

@@ -21,11 +21,13 @@ export function ScoreScreen({ state }: Props) {
     if (state.isDailyChallenge) {
       const entry = loadDailyEntry(todayUtcDateString());
       setShare(entry?.shareString ?? null);
-    } else {
+    } else if (!state.isPractice) {
       const scores = loadHighScores();
       setBestScore(scores[state.difficulty]?.bestScore ?? null);
+    } else {
+      setBestScore(null);
     }
-  }, [state.isDailyChallenge, state.difficulty, result]);
+  }, [state.isDailyChallenge, state.isPractice, state.difficulty, result]);
 
   if (!result) {
     return (
@@ -36,7 +38,11 @@ export function ScoreScreen({ state }: Props) {
     );
   }
 
-  const isNewBest = !state.isDailyChallenge && bestScore !== null && result.totalScore === bestScore;
+  const isNewBest =
+    !state.isDailyChallenge &&
+    !state.isPractice &&
+    bestScore !== null &&
+    result.totalScore === bestScore;
 
   const onCopy = async () => {
     if (!share) return;
@@ -57,6 +63,7 @@ export function ScoreScreen({ state }: Props) {
         <div className="score-headline__number">{result.totalScore}</div>
         <div className="score-headline__label">{result.accuracyPct}% accuracy</div>
         {isNewBest && <div className="score-headline__badge">New best!</div>}
+        {state.isPractice && <div className="score-headline__badge score-headline__badge--practice">Practice — not saved</div>}
       </div>
 
       <JudgmentSummary result={result} />

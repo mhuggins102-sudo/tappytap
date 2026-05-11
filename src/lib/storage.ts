@@ -77,9 +77,10 @@ export function saveDailyEntry(entry: Omit<DailyEntry, 'v'>): void {
 export interface Settings {
   v: number;
   liveFeedback: boolean;
+  practiceMode: boolean;
 }
 
-const DEFAULT_SETTINGS: Settings = { v: VERSION, liveFeedback: true };
+const DEFAULT_SETTINGS: Settings = { v: VERSION, liveFeedback: true, practiceMode: false };
 
 export function loadSettings(): Settings {
   const parsed = safeParse<Partial<Settings>>(localStorage.getItem(SETTINGS_KEY));

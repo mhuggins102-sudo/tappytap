@@ -17,7 +17,9 @@ export type Phase =
       phaseStartedAt: number;
       echoStartTime: number | null;
       taps: number[];
+      tapJudgments: JudgmentOrExtra[];
       lastFlash: TapFlash | null;
+      isPractice: boolean;
     }
   | { kind: 'scoring'; pattern: Pattern; result: RoundResult };
 
@@ -25,6 +27,7 @@ export interface GameState {
   screen: Screen;
   difficulty: Difficulty;
   isDailyChallenge: boolean;
+  isPractice: boolean;
   phase: Phase;
   lastResult: RoundResult | null;
   lastPattern: Pattern | null;
@@ -34,6 +37,7 @@ export const INITIAL_STATE: GameState = {
   screen: 'start',
   difficulty: 'easy',
   isDailyChallenge: false,
+  isPractice: false,
   phase: { kind: 'idle' },
   lastResult: null,
   lastPattern: null,

@@ -3,7 +3,6 @@ export type Difficulty = 'easy' | 'medium' | 'hard';
 export interface Pattern {
   bpm: number;
   onsets: number[];
-  downbeats: boolean[];
   durationSec: number;
   difficulty: Difficulty;
 }

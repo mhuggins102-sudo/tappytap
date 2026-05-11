@@ -546,3 +546,85 @@ button {
 .timeline-dot--ok { background: var(--ok); }
 .timeline-dot--miss { background: var(--miss); opacity: 0.6; }
 .timeline-dot--extra { background: var(--extra); box-shadow: 0 0 6px var(--extra); }
+
+.practice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 560px;
+  background: rgba(20, 24, 35, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+
+.practice__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.practice__label {
+  flex: 0 0 56px;
+  font-size: 10px;
+  color: var(--fg-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.practice__track {
+  position: relative;
+  flex: 1;
+  height: 22px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+
+.practice__track--actual {
+  background: rgba(124, 92, 255, 0.06);
+}
+
+.practice__cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+  transform: translateX(-1px);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.practice-dot {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.4);
+}
+
+.practice-dot--expected { background: #c7cad6; }
+.practice-dot--perfect { background: var(--perfect); box-shadow: 0 0 8px var(--perfect); }
+.practice-dot--great { background: var(--great); box-shadow: 0 0 8px var(--great); }
+.practice-dot--ok { background: var(--ok); }
+.practice-dot--miss { background: var(--miss); opacity: 0.7; }
+.practice-dot--extra { background: var(--extra); box-shadow: 0 0 8px var(--extra); }
+
+.score-headline__badge--practice {
+  background: linear-gradient(135deg, #f1c40f, #c89c0d);
+  color: #2a1f00;
+}
+
+.toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+}
