@@ -10,11 +10,13 @@ export function App() {
 
   return (
     <div className="app">
-      {state.screen === 'start' && <StartScreen />}
-      {state.screen === 'picker' && <DifficultyPicker />}
-      {state.screen === 'game' && <GameScreen state={state} />}
-      {state.screen === 'score' && <ScoreScreen state={state} />}
-      {state.screen === 'daily' && <DailyChallenge />}
+      <div className="app__screen-wrap">
+        {state.screen === 'start' && <StartScreen />}
+        {state.screen === 'picker' && <DifficultyPicker />}
+        {state.screen === 'game' && <GameScreen state={state} />}
+        {state.screen === 'score' && <ScoreScreen state={state} />}
+        {state.screen === 'daily' && <DailyChallenge />}
+      </div>
       <footer className="footer">tappytap · a tiny rhythm game</footer>
     </div>
   );

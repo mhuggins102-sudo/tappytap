@@ -37,6 +37,15 @@ export function TimelineCompare({ pattern, result }: Props) {
 
   return (
     <>
+      {showOnTempo && (
+        <button
+          className="btn btn--small timeline__reveal"
+          type="button"
+          onClick={() => setCorrected((c) => !c)}
+        >
+          {corrected ? 'Show raw timing' : 'Show on-tempo timing'}
+        </button>
+      )}
       <div className="timeline">
         <div className="timeline__row">
           <span className="timeline__label">Pattern</span>
@@ -51,7 +60,7 @@ export function TimelineCompare({ pattern, result }: Props) {
           </div>
         </div>
         <div className="timeline__row">
-          <span className="timeline__label">{corrected ? 'On tempo' : 'You'}</span>
+          <span className="timeline__label">You</span>
           <div className="timeline__track timeline__track--actual">
             {result.taps.map((tap, i) => {
               if (tap.tapTime === null) return null;
@@ -76,15 +85,6 @@ export function TimelineCompare({ pattern, result }: Props) {
           </div>
         </div>
       </div>
-      {showOnTempo && (
-        <button
-          className="btn btn--small timeline__reveal"
-          type="button"
-          onClick={() => setCorrected((c) => !c)}
-        >
-          {corrected ? 'Show raw timing' : 'Show on-tempo timing'}
-        </button>
-      )}
     </>
   );
 }

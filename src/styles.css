@@ -49,25 +49,31 @@ button {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  padding: clamp(10px, 2.5vh, 24px);
+  gap: 0;
+  overflow: hidden;
+}
+
+.app__screen-wrap {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  /* Padding and gaps shrink with viewport height so the layout fits inside
-     mobile browser chrome without spilling. */
-  padding: clamp(10px, 2.5vh, 24px);
   gap: clamp(8px, 2vh, 24px);
   overflow-y: auto;
 }
 
 .footer {
-  position: fixed;
-  bottom: 12px;
-  left: 0;
-  right: 0;
+  flex-shrink: 0;
   text-align: center;
   font-size: 12px;
   color: var(--fg-dim);
   letter-spacing: 0.08em;
   text-transform: lowercase;
+  padding-top: 10px;
 }
 
 .screen {
@@ -226,16 +232,10 @@ button {
 }
 
 .picker-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   width: 100%;
-}
-
-@media (max-width: 480px) {
-  .picker-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .picker-card {
@@ -243,11 +243,12 @@ button {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: var(--bg-elev);
   border-radius: var(--radius);
-  padding: 18px 14px;
+  padding: 10px 14px;
   text-align: left;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
   cursor: pointer;
   transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
 }
@@ -260,6 +261,14 @@ button {
   }
 }
 
+.picker-card__primary {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .picker-card__label {
   font-size: 18px;
   font-weight: 700;
@@ -267,17 +276,38 @@ button {
 
 .picker-card__blurb {
   color: var(--fg-dim);
-  font-size: 13px;
+  font-size: 12px;
+}
+
+.picker-card__stats {
+  flex: 0 0 auto;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--fg-dim);
 }
 
 .picker-card__best {
-  margin-top: auto;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--accent-2);
 }
 
 .picker-card__avg {
+  font-size: 12px;
+  color: var(--fg);
+}
+
+.picker-card__sub {
   font-size: 11px;
+  color: var(--fg-dim);
+}
+
+.picker-card__no-best {
+  font-style: italic;
   color: var(--fg-dim);
 }
 
@@ -384,13 +414,28 @@ button {
   box-shadow: 0 0 calc(40px * var(--flash-intensity)) var(--flash-color) inset;
 }
 
+.tap-target__label-stack {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
 .tap-target__label {
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--fg);
-  position: relative;
-  z-index: 1;
+}
+
+.tap-target__sublabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-dim);
+  letter-spacing: 0.04em;
+  min-height: 16px;
 }
 
 .score-headline {
@@ -615,7 +660,8 @@ button {
 }
 
 .timeline__reveal {
-  margin-top: 4px;
+  margin-bottom: 4px;
+  align-self: center;
 }
 
 .practice {
