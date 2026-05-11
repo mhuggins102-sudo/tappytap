@@ -115,9 +115,11 @@ button {
   transition: transform 80ms ease, background 120ms ease, border-color 120ms ease;
 }
 
-.btn:hover {
-  background: #1b2030;
-  border-color: rgba(255, 255, 255, 0.2);
+@media (hover: hover) {
+  .btn:hover {
+    background: #1b2030;
+    border-color: rgba(255, 255, 255, 0.2);
+  }
 }
 
 .btn:active {
@@ -135,8 +137,10 @@ button {
   box-shadow: var(--shadow);
 }
 
-.btn--primary:hover {
-  background: linear-gradient(135deg, #8c70ff, #6a4fff);
+@media (hover: hover) {
+  .btn--primary:hover {
+    background: linear-gradient(135deg, #8c70ff, #6a4fff);
+  }
 }
 
 .btn--lg {
@@ -235,10 +239,12 @@ button {
   transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.picker-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(124, 92, 255, 0.6);
-  background: #1a1f30;
+@media (hover: hover) {
+  .picker-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(124, 92, 255, 0.6);
+    background: #1a1f30;
+  }
 }
 
 .picker-card__label {
@@ -717,9 +723,11 @@ button {
   line-height: 1;
 }
 
-.subscore__info:hover {
-  background: rgba(255, 255, 255, 0.16);
-  color: var(--fg);
+@media (hover: hover) {
+  .subscore__info:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: var(--fg);
+  }
 }
 
 .subscore__popover {

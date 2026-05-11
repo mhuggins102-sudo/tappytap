@@ -63,27 +63,21 @@ export function matchTapLive(tap: number, expected: number[], used: Set<number>)
 }
 
 function linearFit(xs: number[], ys: number[]): { slope: number; intercept: number } {
+  // Constrained linear regression through the origin. The game forces the
+  // player's first tap to time 0 and the pattern's first onset is also at 0,
+  // so the fit must pass through (0, 0). A free-intercept OLS can pick a
+  // non-zero intercept to balance residuals across the run, which then makes
+  // the first tap look "early" or "late" even though it dictates time zero.
   const n = xs.length;
-  if (n < 2) return { slope: 1, intercept: 0 };
-  let xMean = 0;
-  let yMean = 0;
-  for (let i = 0; i < n; i++) {
-    xMean += xs[i];
-    yMean += ys[i];
-  }
-  xMean /= n;
-  yMean /= n;
+  if (n < 1) return { slope: 1, intercept: 0 };
   let num = 0;
   let den = 0;
   for (let i = 0; i < n; i++) {
-    const dx = xs[i] - xMean;
-    num += dx * (ys[i] - yMean);
-    den += dx * dx;
+    num += xs[i] * ys[i];
+    den += xs[i] * xs[i];
   }
   if (den === 0) return { slope: 1, intercept: 0 };
-  const slope = num / den;
-  const intercept = yMean - slope * xMean;
-  return { slope, intercept };
+  return { slope: num / den, intercept: 0 };
 }
 
 function median(values: number[]): number {
@@ -198,8 +192,7 @@ function medianIoiSeed(expected: number[], taps: number[]): Seed | null {
   if (ratios.length === 0) return null;
   const slope = median(ratios);
   if (!isFinite(slope) || slope < 0.2 || slope > 5) return null;
-  const intercept = median(taps) - slope * median(expected);
-  return { slope, intercept };
+  return { slope, intercept: 0 };
 }
 
 function spanSeed(expected: number[], taps: number[]): Seed | null {
@@ -208,8 +201,7 @@ function spanSeed(expected: number[], taps: number[]): Seed | null {
   if (expSpan <= 0) return null;
   const slope = (taps[taps.length - 1] - taps[0]) / expSpan;
   if (slope < 0.3 || slope > 3) return null;
-  const intercept = taps[0] - slope * expected[0];
-  return { slope, intercept };
+  return { slope, intercept: 0 };
 }
 
 interface FitResult {
@@ -277,13 +269,31 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
 
   const { slope, intercept, align } = best;
 
+  // Post-process: a MATCH op whose residual after correction exceeds the
+  // window (>150 ms) is more truthfully described as a missed onset plus a
+  // stray tap. Demoting it keeps the tallies and Hit/Clean rates consistent
+  // (no more "Hit rate 100% but 1 miss" inconsistency).
+  const ops: Op[] = [];
+  for (const op of align.ops) {
+    if (op.kind === 'match') {
+      const expCorr = slope * expectedOnsets[op.i] + intercept;
+      const errMs = Math.abs((taps[op.j] - expCorr) * 1000);
+      if (errMs > 150) {
+        ops.push({ kind: 'miss', i: op.i });
+        ops.push({ kind: 'extra', j: op.j });
+        continue;
+      }
+    }
+    ops.push(op);
+  }
+
   type Ordered = TapResult & { _order: number };
   const results: Ordered[] = [];
   let matchedAbsErrorSum = 0;
   let matchCount = 0;
+  let lastExpectedSeen = -1;
 
-  for (let k = 0; k < align.ops.length; k++) {
-    const op = align.ops[k];
+  for (const op of ops) {
     if (op.kind === 'match') {
       const expRaw = expectedOnsets[op.i];
       const expCorr = slope * expRaw + intercept;
@@ -293,6 +303,7 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
       const { judgment } = judge(errorMs);
       matchedAbsErrorSum += Math.abs(errorMs);
       matchCount++;
+      lastExpectedSeen = op.i;
       results.push({
         _order: op.i * 2,
         expectedIdx: op.i,
@@ -302,6 +313,7 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
         judgment,
       });
     } else if (op.kind === 'miss') {
+      lastExpectedSeen = op.i;
       results.push({
         _order: op.i * 2,
         expectedIdx: op.i,
@@ -311,14 +323,8 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
         judgment: 'miss',
       });
     } else {
-      // extras placed just after the most recent expected position they followed
-      const followsIdx = align.ops.slice(0, k).reduce((acc, prev) => {
-        if (prev.kind === 'match') return prev.i;
-        if (prev.kind === 'miss') return prev.i;
-        return acc;
-      }, -1);
       results.push({
-        _order: followsIdx * 2 + 1,
+        _order: lastExpectedSeen * 2 + 1,
         expectedIdx: null,
         tapTime: taps[op.j],
         errorMs: null,

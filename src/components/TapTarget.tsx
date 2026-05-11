@@ -137,13 +137,13 @@ function computePulse(phase: Phase, now: number): number {
 }
 
 function computeFlashIntensity(phase: Phase, now: number): number {
-  if (phase.kind !== 'echoing' || !phase.lastFlash) return 0;
+  if (phase.kind !== 'echoing' || !phase.lastFlash || !phase.isPractice) return 0;
   const dt = now - phase.lastFlash.at;
   if (dt < 0) return 0;
   return Math.max(0, 1 - dt / FLASH_DECAY_SEC);
 }
 
 function currentFlashColor(phase: Phase): string {
-  if (phase.kind !== 'echoing' || !phase.lastFlash) return 'transparent';
+  if (phase.kind !== 'echoing' || !phase.lastFlash || !phase.isPractice) return 'transparent';
   return JUDGMENT_COLOR_VAR[phase.lastFlash.judgment];
 }
