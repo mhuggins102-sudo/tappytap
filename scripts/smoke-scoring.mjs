@@ -48,6 +48,27 @@ const expected = [0, 0.5, 1.0];
 }
 
 {
+  // 30% fast (1.3x speed) — catches the regression where greedy matching
+  // mis-paired late taps and the linear fit collapsed to slope ≈ 1.
+  const exp = [0, 0.5, 1.0, 1.5, 2.0];
+  const taps = exp.map((t) => t / 1.3);
+  const r = scoreRound(exp, taps);
+  assert(Math.abs(r.tempoFactor - 1 / 1.3) < 0.01, `1.3x → tempoFactor ≈ 0.77 (got ${r.tempoFactor.toFixed(3)})`);
+  assert(r.judgmentCounts.perfect === 5, `1.3x → 5 perfect after correction (got ${r.judgmentCounts.perfect})`);
+  // tempoQuality = 1 − 2 × 0.231 = 0.538 → score ≈ 54
+  assert(r.totalScore >= 50 && r.totalScore <= 58, `1.3x → score 50..58 (got ${r.totalScore})`);
+}
+
+{
+  // Easy-style 16-onset pattern at 1.3x speed — the realistic case the user reported.
+  const exp = [];
+  for (let i = 0; i < 16; i++) exp.push(i * 0.3);
+  const taps = exp.map((t) => t / 1.3);
+  const r = scoreRound(exp, taps);
+  assert(Math.abs(r.tempoFactor - 1 / 1.3) < 0.01, `16-onset 1.3x → tempoFactor ≈ 0.77 (got ${r.tempoFactor.toFixed(3)})`);
+}
+
+{
   // On tempo, jittery rhythm
   const exp = [0, 0.5, 1.0, 1.5, 2.0];
   const taps = [0, 0.55, 0.95, 1.55, 1.95];

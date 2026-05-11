@@ -17,27 +17,18 @@ export function TimelineCompare({ pattern, result }: Props) {
   );
   const denom = maxTime > 0 ? maxTime : 1;
 
-  const missedIndices = new Set<number>();
-  for (const t of result.taps) {
-    if (t.judgment === 'miss' && t.expectedIdx !== null) missedIndices.add(t.expectedIdx);
-  }
-
   return (
     <div className="timeline">
       <div className="timeline__row">
         <span className="timeline__label">Pattern</span>
         <div className="timeline__track timeline__track--expected">
-          {expected.map((onset, i) => {
-            const missed = missedIndices.has(i);
-            return (
-              <span
-                key={i}
-                className={`timeline-dot ${missed ? 'timeline-dot--expected-missed' : 'timeline-dot--expected'}`}
-                style={{ left: `${(onset / denom) * 100}%` }}
-                title={missed ? 'Missed beat' : undefined}
-              />
-            );
-          })}
+          {expected.map((onset, i) => (
+            <span
+              key={i}
+              className="timeline-dot timeline-dot--expected"
+              style={{ left: `${(onset / denom) * 100}%` }}
+            />
+          ))}
         </div>
       </div>
       <div className="timeline__row">

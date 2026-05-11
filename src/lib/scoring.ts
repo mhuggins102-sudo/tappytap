@@ -120,23 +120,30 @@ function greedyMatch(taps: number[], expected: number[], offsetFn: (e: number) =
 export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundResult {
   const taps = [...tapsSec].sort((a, b) => a - b);
 
-  // Pass 1: greedy match against raw expected positions.
-  const pass1 = greedyMatch(taps, expectedOnsets, (e) => e);
-
-  // Fit a line through the matched pairs so we can separate tempo from rhythm.
-  const xs: number[] = [];
-  const ys: number[] = [];
-  for (const m of pass1) {
-    if (m.expectedIdx !== null) {
-      xs.push(expectedOnsets[m.expectedIdx]);
-      ys.push(m.tapTime);
+  // Find the best linear fit by trying two initial slope estimates and iterating
+  // greedy-match → re-fit until convergence. The two starting points are
+  //   (a) slope = 1 (identity), and
+  //   (b) slope = (last tap span) / (last expected span) — robust when tempo is
+  //       heavily off, because greedy matching at slope=1 will mis-pair late taps
+  //       with the wrong expected onsets and bias the fit back toward 1.
+  const fits = [iterativeFit(taps, expectedOnsets, 1, 0)];
+  if (taps.length >= 2 && expectedOnsets.length >= 2) {
+    const expSpan = expectedOnsets[expectedOnsets.length - 1] - expectedOnsets[0];
+    if (expSpan > 0) {
+      const spanSlope = (taps[taps.length - 1] - taps[0]) / expSpan;
+      if (spanSlope >= 0.3 && spanSlope <= 3) {
+        fits.push(iterativeFit(taps, expectedOnsets, spanSlope, 0));
+      }
     }
   }
-  const { slope, intercept } = linearFit(xs, ys);
-
-  // Pass 2: re-match against fitted positions so taps that drifted out of the
-  // raw window can be reclaimed if they were rhythmically on-line.
-  const pass2 = greedyMatch(taps, expectedOnsets, (e) => slope * e + intercept);
+  let best = fits[0];
+  for (const f of fits.slice(1)) {
+    const better =
+      f.matchCount > best.matchCount ||
+      (f.matchCount === best.matchCount && Math.abs(f.slope - 1) < Math.abs(best.slope - 1));
+    if (better) best = f;
+  }
+  const { slope, matches: pass2 } = best;
 
   const used = new Set<number>();
   const tapResults: Array<TapResult & { _order: number }> = [];
@@ -203,6 +210,43 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
   const accuracyPct = totalTaps > 0 ? Math.round(precision * 100) : 0;
 
   return { taps: results, totalScore, accuracyPct, judgmentCounts: counts, tempoFactor };
+}
+
+interface FitResult {
+  slope: number;
+  intercept: number;
+  matches: MatchedTap[];
+  matchCount: number;
+}
+
+function iterativeFit(taps: number[], expected: number[], initSlope: number, initIntercept: number): FitResult {
+  let slope = initSlope;
+  let intercept = initIntercept;
+  let matches: MatchedTap[] = [];
+  for (let iter = 0; iter < 5; iter++) {
+    matches = greedyMatch(taps, expected, (e) => slope * e + intercept);
+    const xs: number[] = [];
+    const ys: number[] = [];
+    for (const m of matches) {
+      if (m.expectedIdx !== null) {
+        xs.push(expected[m.expectedIdx]);
+        ys.push(m.tapTime);
+      }
+    }
+    if (xs.length < 2) break;
+    const next = linearFit(xs, ys);
+    if (Math.abs(next.slope - slope) < 0.001 && Math.abs(next.intercept - intercept) < 0.001) {
+      slope = next.slope;
+      intercept = next.intercept;
+      // Re-run match with final fit so reported errors match
+      matches = greedyMatch(taps, expected, (e) => slope * e + intercept);
+      break;
+    }
+    slope = next.slope;
+    intercept = next.intercept;
+  }
+  const matchCount = matches.filter((m) => m.expectedIdx !== null).length;
+  return { slope, intercept, matches, matchCount };
 }
 
 export function shareString(dateStr: string, result: RoundResult): string {

@@ -15,50 +15,23 @@ const JUDGMENT_CLASS: Record<JudgmentOrExtra, string> = {
   extra: 'practice-dot--extra',
 };
 
-const MATCH_WINDOW_SEC = 0.15;
-const EXPECTED_BASE_CLASS = 'practice-dot practice-dot--expected';
-const EXPECTED_MISS_CLASS = 'practice-dot practice-dot--expected-missed';
-
 export function PracticeOverlay({ phase }: Props) {
   const cursorRef = useRef<HTMLSpanElement | null>(null);
-  const expectedDotRefs = useRef<Array<HTMLSpanElement | null>>([]);
-  const { pattern, echoStartTime, taps, tapJudgments, tapExpectedIndices } = phase;
+  const { pattern, echoStartTime, taps, tapJudgments } = phase;
   const duration = Math.max(0.001, pattern.durationSec);
 
   useEffect(() => {
     let raf = 0;
     let stop = false;
-
-    const matchedSet = new Set<number>();
-    for (const idx of tapExpectedIndices) {
-      if (idx !== null) matchedSet.add(idx);
-    }
-
     const tick = () => {
       if (stop) return;
       const eng = getEngine();
       const cursor = cursorRef.current;
-      if (eng) {
-        const now = eng.audioTimeNow();
-        const elapsed = echoStartTime === null ? 0 : Math.max(0, now - echoStartTime);
+      if (eng && cursor) {
+        const elapsed = echoStartTime === null ? 0 : Math.max(0, eng.audioTimeNow() - echoStartTime);
         const cursorPct = (Math.min(duration, elapsed) / duration) * 100;
-        if (cursor) {
-          cursor.style.left = `${cursorPct}%`;
-          cursor.style.opacity = echoStartTime === null ? '0' : '1';
-        }
-
-        const dots = expectedDotRefs.current;
-        for (let i = 0; i < dots.length; i++) {
-          const dot = dots[i];
-          if (!dot) continue;
-          const onset = pattern.onsets[i];
-          const isMissed =
-            echoStartTime !== null &&
-            !matchedSet.has(i) &&
-            elapsed > onset + MATCH_WINDOW_SEC;
-          const desired = isMissed ? EXPECTED_MISS_CLASS : EXPECTED_BASE_CLASS;
-          if (dot.className !== desired) dot.className = desired;
-        }
+        cursor.style.left = `${cursorPct}%`;
+        cursor.style.opacity = echoStartTime === null ? '0' : '1';
       }
       raf = requestAnimationFrame(tick);
     };
@@ -67,7 +40,7 @@ export function PracticeOverlay({ phase }: Props) {
       stop = true;
       cancelAnimationFrame(raf);
     };
-  }, [echoStartTime, duration, pattern, tapExpectedIndices]);
+  }, [echoStartTime, duration]);
 
   return (
     <div className="practice">
@@ -77,10 +50,7 @@ export function PracticeOverlay({ phase }: Props) {
           {pattern.onsets.map((onset, i) => (
             <span
               key={i}
-              ref={(el) => {
-                expectedDotRefs.current[i] = el;
-              }}
-              className={EXPECTED_BASE_CLASS}
+              className="practice-dot practice-dot--expected"
               style={{ left: `${(onset / duration) * 100}%` }}
             />
           ))}
