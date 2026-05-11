@@ -24,6 +24,10 @@ html,
 body,
 #root {
   height: 100%;
+  /* Dynamic viewport units track the visible area even when mobile browser
+     chrome (URL bar, etc.) shows or hides. Falls back to 100% for browsers
+     that don't yet support dvh. */
+  height: 100dvh;
   margin: 0;
 }
 
@@ -42,13 +46,16 @@ button {
 }
 
 .app {
-  min-height: 100%;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  gap: 24px;
+  /* Padding and gaps shrink with viewport height so the layout fits inside
+     mobile browser chrome without spilling. */
+  padding: clamp(10px, 2.5vh, 24px);
+  gap: clamp(8px, 2vh, 24px);
+  overflow-y: auto;
 }
 
 .footer {
@@ -315,7 +322,9 @@ button {
 .tap-target {
   --pulse: 0;
   position: relative;
-  width: min(72vw, 320px);
+  /* Cap by both viewport width and height so the tap target shrinks when the
+     visible area is short (mobile browser with URL bar, etc.). */
+  width: min(70vw, 48dvh, 320px);
   aspect-ratio: 1 / 1;
   border-radius: 50%;
   border: 0;
@@ -601,26 +610,11 @@ button {
   border-radius: 7px;
 }
 
-.timeline__row--collapsible {
-  overflow: hidden;
-  max-height: 40px;
-  opacity: 1;
-  transition: max-height 320ms ease, opacity 240ms ease, margin 240ms ease;
-}
-
-.timeline__row--collapsed {
-  max-height: 0;
-  opacity: 0;
-  margin: 0;
-  pointer-events: none;
-}
-
 .timeline-dot--animated {
-  transition: left 750ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: left 1125ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .timeline__reveal {
-  align-self: center;
   margin-top: 4px;
 }
 
@@ -791,6 +785,10 @@ button {
 .toggles {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
   align-items: center;
+}
+
+.toggle {
+  padding: 4px 4px;
 }

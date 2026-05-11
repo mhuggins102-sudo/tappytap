@@ -12,6 +12,8 @@ export interface DifficultyRecord {
   games: number;
   totalScore: number;
   totalAccuracy: number;
+  totalRhythm: number;
+  totalTempo: number;
 }
 
 export interface HighScores {
@@ -41,20 +43,21 @@ function safeParse<T>(raw: string | null): T | null {
 
 function migrateRecord(r: DifficultyRecord | null): DifficultyRecord | null {
   if (!r) return null;
-  // Older saves had only best fields. Seed cumulative totals from the best so
-  // averages aren't undefined for returning players, even though that
-  // overestimates their actual average until they play a few more rounds.
-  if (typeof r.games !== 'number' || typeof r.totalScore !== 'number' || typeof r.totalAccuracy !== 'number') {
-    return {
-      bestScore: r.bestScore,
-      bestAccuracy: r.bestAccuracy,
-      playedAt: r.playedAt,
-      games: 1,
-      totalScore: r.bestScore,
-      totalAccuracy: r.bestAccuracy,
-    };
-  }
-  return r;
+  // Older saves are missing one or more aggregate fields. Seed any missing
+  // cumulative totals from the existing best so averages aren't undefined for
+  // returning players. This overestimates the average until a few more rounds
+  // are played, but is non-destructive.
+  const games = typeof r.games === 'number' && r.games > 0 ? r.games : 1;
+  return {
+    bestScore: r.bestScore,
+    bestAccuracy: r.bestAccuracy,
+    playedAt: r.playedAt,
+    games,
+    totalScore: typeof r.totalScore === 'number' ? r.totalScore : r.bestScore * games,
+    totalAccuracy: typeof r.totalAccuracy === 'number' ? r.totalAccuracy : r.bestAccuracy * games,
+    totalRhythm: typeof r.totalRhythm === 'number' ? r.totalRhythm : r.bestScore * games,
+    totalTempo: typeof r.totalTempo === 'number' ? r.totalTempo : r.bestScore * games,
+  };
 }
 
 export function loadHighScores(): HighScores {
@@ -84,6 +87,8 @@ export function recordRound(difficulty: Difficulty, result: RoundResult): {
     games: (current?.games ?? 0) + 1,
     totalScore: (current?.totalScore ?? 0) + result.totalScore,
     totalAccuracy: (current?.totalAccuracy ?? 0) + result.accuracyPct,
+    totalRhythm: (current?.totalRhythm ?? 0) + result.rhythmScore,
+    totalTempo: (current?.totalTempo ?? 0) + result.tempoScore,
   };
   localStorage.setItem(HIGHSCORES_KEY, JSON.stringify(scores));
 
