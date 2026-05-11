@@ -9,20 +9,22 @@ export function TimelineCompare({ pattern, result }: Props) {
   const expected = pattern.onsets;
   const slope = result.tempoFactor || 1;
   const intercept = result.tempoIntercept || 0;
-  const correctedExpected = expected.map((e) => slope * e + intercept);
+  const showOnTempo = Math.abs(slope - 1) > 0.01 || Math.abs(intercept) > 0.01;
 
   const tapTimes = result.taps
     .map((t) => t.tapTime)
     .filter((t): t is number => t !== null);
 
+  const onTempoMaxTap = tapTimes.length
+    ? Math.max(...tapTimes.map((t) => (slope > 0 ? (t - intercept) / slope : t)))
+    : 0;
+
   const maxTime = Math.max(
     pattern.durationSec,
     tapTimes.length ? Math.max(...tapTimes) : 0,
-    correctedExpected.length ? correctedExpected[correctedExpected.length - 1] : 0,
+    showOnTempo ? onTempoMaxTap : 0,
   );
   const denom = maxTime > 0 ? maxTime : 1;
-
-  const showCorrected = Math.abs(slope - 1) > 0.01 || Math.abs(intercept) > 0.01;
 
   return (
     <div className="timeline">
@@ -38,20 +40,6 @@ export function TimelineCompare({ pattern, result }: Props) {
           ))}
         </div>
       </div>
-      {showCorrected && (
-        <div className="timeline__row">
-          <span className="timeline__label">Your tempo</span>
-          <div className="timeline__track timeline__track--corrected">
-            {correctedExpected.map((onset, i) => (
-              <span
-                key={i}
-                className="timeline-dot timeline-dot--corrected"
-                style={{ left: `${(onset / denom) * 100}%` }}
-              />
-            ))}
-          </div>
-        </div>
-      )}
       <div className="timeline__row">
         <span className="timeline__label">You</span>
         <div className="timeline__track timeline__track--actual">
@@ -59,9 +47,9 @@ export function TimelineCompare({ pattern, result }: Props) {
             if (tap.tapTime !== null) {
               const tint = tap.rawErrorMs === null
                 ? ''
-                : tap.rawErrorMs < 0
+                : tap.rawErrorMs < -2
                   ? ' timeline-dot--early'
-                  : tap.rawErrorMs > 0
+                  : tap.rawErrorMs > 2
                     ? ' timeline-dot--late'
                     : '';
               return (
@@ -74,7 +62,7 @@ export function TimelineCompare({ pattern, result }: Props) {
               );
             }
             if (tap.judgment === 'miss' && tap.expectedIdx !== null) {
-              const pos = correctedExpected[tap.expectedIdx] ?? expected[tap.expectedIdx];
+              const pos = slope * expected[tap.expectedIdx] + intercept;
               return (
                 <span
                   key={i}
@@ -88,6 +76,25 @@ export function TimelineCompare({ pattern, result }: Props) {
           })}
         </div>
       </div>
+      {showOnTempo && (
+        <div className="timeline__row">
+          <span className="timeline__label">On tempo</span>
+          <div className="timeline__track timeline__track--corrected">
+            {result.taps.map((tap, i) => {
+              if (tap.tapTime === null) return null;
+              const pos = slope > 0 ? (tap.tapTime - intercept) / slope : tap.tapTime;
+              return (
+                <span
+                  key={i}
+                  className={`timeline-dot timeline-dot--${tap.judgment}`}
+                  style={{ left: `${(pos / denom) * 100}%` }}
+                  title={titleFor(tap)}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
