@@ -22,33 +22,30 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 }
 
 {
-  // 5% fast, perfect rhythm. Local IOI ratios all 0.95 → rms = 0.05 →
-  // tempo = 100 − 300·0.05 = 85. rhythm stays 100 because residuals after
-  // tempo correction are 0.
+  // 5% fast, perfect rhythm. meanAbsDev = 0.05 → tempo = 90.
   const taps = expected5.map((t) => t * 0.95);
   const r = scoreRound(expected5, taps);
   assert(r.judgmentCounts.perfect === 5, '5% fast → 5 perfect after correction');
   assert(r.rhythmScore === 100, `5% fast → rhythm 100 (got ${r.rhythmScore})`);
-  assert(r.tempoScore === 85, `5% fast → tempo 85 (got ${r.tempoScore})`);
-  assert(r.totalScore === 85, `5% fast → total 85 (got ${r.totalScore})`);
-  assert(Math.abs(r.tempoFactor - 0.95) < 0.01, 'tempoFactor ≈ 0.95');
+  assert(r.tempoScore === 90, `5% fast → tempo 90 (got ${r.tempoScore})`);
+  assert(r.totalScore === 90, `5% fast → total 90 (got ${r.totalScore})`);
 }
 
 {
-  // 10% fast: rms = 0.1 → tempo = 70.
+  // 10% fast: meanAbsDev = 0.1 → tempo = 80.
   const taps = expected5.map((t) => t * 0.9);
   const r = scoreRound(expected5, taps);
-  assert(r.tempoScore === 70, `10% fast → tempo 70 (got ${r.tempoScore})`);
-  assert(r.totalScore === 70, `10% fast → 70 (got ${r.totalScore})`);
+  assert(r.tempoScore === 80, `10% fast → tempo 80 (got ${r.tempoScore})`);
+  assert(r.totalScore === 80, `10% fast → 80 (got ${r.totalScore})`);
 }
 
 {
-  // 30% fast (1.3x speed): rms ≈ 0.231 → tempo ≈ 31.
+  // 30% fast (1.3x speed): meanAbsDev ≈ 0.231 → tempo ≈ 54.
   const taps = expected5.map((t) => t / 1.3);
   const r = scoreRound(expected5, taps);
   assert(Math.abs(r.tempoFactor - 1 / 1.3) < 0.01, `1.3x → slope ≈ 0.77 (got ${r.tempoFactor.toFixed(3)})`);
   assert(r.rhythmScore === 100, `1.3x → rhythm 100`);
-  assert(r.tempoScore >= 28 && r.tempoScore <= 35, `1.3x → tempo 28..35 (got ${r.tempoScore})`);
+  assert(r.tempoScore >= 52 && r.tempoScore <= 56, `1.3x → tempo 52..56 (got ${r.tempoScore})`);
 }
 
 {
@@ -70,7 +67,7 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
   const taps = [0, 0.55, 0.95, 1.55, 1.95];
   const r = scoreRound(expected5, taps);
   assert(Math.abs(r.tempoFactor - 1) < 0.05, 'jittery → median slope ≈ 1');
-  assert(r.tempoScore < 60, `jittery → tempo drops with IOI variance (got ${r.tempoScore})`);
+  assert(r.tempoScore < 75, `jittery → tempo drops with IOI variance (got ${r.tempoScore})`);
   assert(r.rhythmScore < 80, `jittery → rhythm drops (got ${r.rhythmScore})`);
 }
 

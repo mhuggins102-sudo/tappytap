@@ -78,17 +78,16 @@ function fitSlopeMedianRatio(expected: number[], taps: number[], n: number): num
 }
 
 /**
- * Tempo statistics computed from local IOI ratios. The score uses RMS so
- * mid-pattern fluctuation hurts even if the median ends up at 1.0. The
- * other two means feed the displayed % and the direction label.
+ * Tempo statistics computed from local IOI ratios. The score and the
+ * displayed % both come from meanAbsDev, so they move together: each
+ * percent of typical IOI deviation costs 2 points (5% off ⇒ 90, 10% ⇒ 80).
  */
 function tempoStatistics(
   expected: number[],
   taps: number[],
   n: number,
-): { rms: number; meanAbsDev: number; meanDev: number } {
-  if (n < 2) return { rms: 0, meanAbsDev: 0, meanDev: 0 };
-  let sumSq = 0;
+): { meanAbsDev: number; meanDev: number } {
+  if (n < 2) return { meanAbsDev: 0, meanDev: 0 };
   let sumAbs = 0;
   let sumSigned = 0;
   let count = 0;
@@ -97,14 +96,12 @@ function tempoStatistics(
     if (expIoi <= 1e-6) continue;
     const tapIoi = taps[i + 1] - taps[i];
     const dev = tapIoi / expIoi - 1;
-    sumSq += dev * dev;
     sumAbs += Math.abs(dev);
     sumSigned += dev;
     count++;
   }
-  if (count === 0) return { rms: 0, meanAbsDev: 0, meanDev: 0 };
+  if (count === 0) return { meanAbsDev: 0, meanDev: 0 };
   return {
-    rms: Math.sqrt(sumSq / count),
     meanAbsDev: sumAbs / count,
     meanDev: sumSigned / count,
   };
@@ -184,17 +181,14 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
 
   const tempoFactor = matchedCount >= 2 ? slope : 1;
   const tempoIntercept = 0;
-  // Tempo score is driven by the RMS deviation of local IOI ratios from 1.0
-  // (k = 300), not just the overall slope. This means a player who rushed
-  // mid-pattern and recovered by the end gets a lower tempo score than one
-  // who held a steady (even if slightly off) tempo throughout.
+  // Score and displayed % both use meanAbsDev so the two stay in lockstep:
+  // tempoScore ≈ 100 − 2 × tempoPct (each percent of typical IOI deviation
+  // costs 2 points). Captures both consistent off-pace AND mid-pattern
+  // wobble — both raise meanAbsDev.
   const tStats = matchedCount >= 2
     ? tempoStatistics(expectedOnsets, taps, matchedCount)
-    : { rms: 0, meanAbsDev: 0, meanDev: 0 };
-  const tempoScore = Math.max(0, Math.round(100 - 300 * tStats.rms));
-  // Displayed magnitude: typical (mean absolute) local IOI deviation. This
-  // tracks what the score actually penalizes, so the % the player sees stays
-  // in step with the number.
+    : { meanAbsDev: 0, meanDev: 0 };
+  const tempoScore = Math.max(0, Math.round(100 - 200 * tStats.meanAbsDev));
   const tempoPct = Math.round(tStats.meanAbsDev * 100);
   // Direction: 'fast' or 'slow' only when the signed mean is dominant enough
   // (≥ 50% of the absolute mean) to be the obvious story; otherwise the
