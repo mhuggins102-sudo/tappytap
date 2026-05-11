@@ -1,6 +1,11 @@
 import { ensureAudioEngine, kickAudioSync } from '../audio/audioContext';
-import { pickGrooveIndex, schedulePattern, scheduleCountdown } from '../audio/scheduler';
-import { playFeedbackClick } from '../audio/clickSynth';
+import {
+  pickGrooveIndex,
+  playTapFeedback,
+  schedulePattern,
+  scheduleCountdown,
+  type SoundTheme,
+} from '../audio/scheduler';
 import { generatePattern } from '../patterns/generator';
 import { generateDailyPattern, todayUtcDateString } from '../patterns/daily';
 import type { Difficulty, JudgmentOrExtra, Pattern } from '../patterns/types';
@@ -144,7 +149,16 @@ async function beginRound(
   const msUntilEcho = Math.max(0, (echoStart - ctx.currentTime) * 1000);
   pendingTimers.push(
     window.setTimeout(() => {
-      enterEchoPhase(ctx, pattern, difficulty, isDailyChallenge, isPractice, echoStart);
+      enterEchoPhase(
+        ctx,
+        pattern,
+        difficulty,
+        isDailyChallenge,
+        isPractice,
+        echoStart,
+        settings.soundTheme,
+        grooveIdx,
+      );
     }, msUntilEcho),
   );
 }
@@ -156,6 +170,8 @@ function enterEchoPhase(
   isDailyChallenge: boolean,
   isPractice: boolean,
   echoStart: number,
+  soundTheme: SoundTheme,
+  grooveIdx: number,
 ): void {
   currentTaps = [];
   currentJudgments = [];
@@ -186,7 +202,7 @@ function enterEchoPhase(
     const phase = gameStore.get().phase;
     if (phase.kind !== 'echoing') return;
 
-    playFeedbackClick(ctx);
+    playTapFeedback(ctx, soundTheme, grooveIdx, currentTaps.length);
 
     if (phase.echoStartTime === null) {
       if (abortTimer !== null) {

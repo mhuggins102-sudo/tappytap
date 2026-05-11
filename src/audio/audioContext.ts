@@ -21,8 +21,7 @@ function captureOffset(ctx: AudioContext): number {
 }
 
 async function createEngine(): Promise<AudioEngine> {
-  const Ctor = getAudioContextCtor();
-  const ctx = new Ctor({ latencyHint: 'interactive' });
+  const ctx = newContext();
   if (ctx.state === 'suspended') {
     try {
       await ctx.resume();
@@ -30,6 +29,15 @@ async function createEngine(): Promise<AudioEngine> {
       // Will retry on next user gesture.
     }
   }
+  return wrap(ctx);
+}
+
+function newContext(): AudioContext {
+  const Ctor = getAudioContextCtor();
+  return new Ctor({ latencyHint: 'interactive' });
+}
+
+function wrap(ctx: AudioContext): AudioEngine {
   let offset = captureOffset(ctx);
   return {
     ctx,
@@ -81,16 +89,34 @@ export function getEngine(): AudioEngine | null {
 }
 
 /**
- * Synchronously kick the audio context inside a user gesture handler. iOS
- * Safari only honors resume()/audio scheduling when the call originates
- * directly from a gesture; awaiting earlier in the call chain loses that
+ * Synchronously ensure a usable audio context exists inside this user
+ * gesture. iOS Safari only honors AudioContext creation/resume when the
+ * call originates directly from a gesture; awaited code paths lose that
  * standing. Call this at the top of click handlers, before any awaits.
+ *
+ * When the page is backgrounded and returned, the existing context can be
+ * silently broken: resume() succeeds but no audio plays. The pointerdown
+ * handler below drops the engine on the first tap after a hide event, and
+ * this function then creates a fresh one *synchronously* inside the same
+ * gesture so the subsequent async ensureAudioEngine() has nothing to do
+ * across an await boundary.
  */
 export function kickAudioSync(): void {
-  if (!engine) return;
-  const state = engine.ctx.state;
-  if (state === 'suspended') {
-    engine.ctx.resume().catch(() => {});
+  if (engine && engine.ctx.state !== 'closed') {
+    if (engine.ctx.state === 'suspended') {
+      engine.ctx.resume().catch(() => {});
+    }
+    return;
+  }
+  try {
+    const ctx = newContext();
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+    engine = wrap(ctx);
+    installResumeHandlers();
+  } catch {
+    // ensureAudioEngine() async path will retry on the next tick.
   }
 }
 

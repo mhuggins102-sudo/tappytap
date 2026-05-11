@@ -9,6 +9,9 @@ export interface DifficultyRecord {
   bestScore: number;
   bestAccuracy: number;
   playedAt: string;
+  games: number;
+  totalScore: number;
+  totalAccuracy: number;
 }
 
 export interface HighScores {
@@ -36,10 +39,34 @@ function safeParse<T>(raw: string | null): T | null {
   }
 }
 
+function migrateRecord(r: DifficultyRecord | null): DifficultyRecord | null {
+  if (!r) return null;
+  // Older saves had only best fields. Seed cumulative totals from the best so
+  // averages aren't undefined for returning players, even though that
+  // overestimates their actual average until they play a few more rounds.
+  if (typeof r.games !== 'number' || typeof r.totalScore !== 'number' || typeof r.totalAccuracy !== 'number') {
+    return {
+      bestScore: r.bestScore,
+      bestAccuracy: r.bestAccuracy,
+      playedAt: r.playedAt,
+      games: 1,
+      totalScore: r.bestScore,
+      totalAccuracy: r.bestAccuracy,
+    };
+  }
+  return r;
+}
+
 export function loadHighScores(): HighScores {
   const parsed = safeParse<HighScores>(localStorage.getItem(HIGHSCORES_KEY));
   if (!parsed || parsed.v !== VERSION) return { ...EMPTY_HIGHSCORES };
-  return { ...EMPTY_HIGHSCORES, ...parsed };
+  return {
+    ...EMPTY_HIGHSCORES,
+    ...parsed,
+    easy: migrateRecord(parsed.easy),
+    medium: migrateRecord(parsed.medium),
+    hard: migrateRecord(parsed.hard),
+  };
 }
 
 export function recordRound(difficulty: Difficulty, result: RoundResult): {
@@ -50,16 +77,21 @@ export function recordRound(difficulty: Difficulty, result: RoundResult): {
   const current = scores[difficulty];
   const isNewBest = !current || result.totalScore > current.bestScore;
 
-  if (isNewBest) {
-    scores[difficulty] = {
-      bestScore: result.totalScore,
-      bestAccuracy: result.accuracyPct,
-      playedAt: new Date().toISOString(),
-    };
-    localStorage.setItem(HIGHSCORES_KEY, JSON.stringify(scores));
-  }
+  scores[difficulty] = {
+    bestScore: isNewBest ? result.totalScore : current!.bestScore,
+    bestAccuracy: isNewBest ? result.accuracyPct : current!.bestAccuracy,
+    playedAt: new Date().toISOString(),
+    games: (current?.games ?? 0) + 1,
+    totalScore: (current?.totalScore ?? 0) + result.totalScore,
+    totalAccuracy: (current?.totalAccuracy ?? 0) + result.accuracyPct,
+  };
+  localStorage.setItem(HIGHSCORES_KEY, JSON.stringify(scores));
 
   return { scores, isNewBest };
+}
+
+export function clearHighScores(): void {
+  localStorage.removeItem(HIGHSCORES_KEY);
 }
 
 export function loadDailyEntry(todayDateStr: string): DailyEntry | null {
