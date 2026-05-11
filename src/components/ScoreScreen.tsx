@@ -62,6 +62,7 @@ export function ScoreScreen({ state }: Props) {
       <div className="score-headline">
         <div className="score-headline__number">{result.totalScore}</div>
         <div className="score-headline__label">{result.accuracyPct}% accuracy</div>
+        <div className="score-headline__tempo">{tempoText(result.tempoFactor)}</div>
         {isNewBest && <div className="score-headline__badge">New best!</div>}
         {state.isPractice && <div className="score-headline__badge score-headline__badge--practice">Practice — not saved</div>}
       </div>
@@ -102,6 +103,13 @@ function JudgmentSummary({ result }: { result: RoundResult }) {
       {c.extra > 0 && <Tally label="Extra" n={c.extra} variant="extra" />}
     </div>
   );
+}
+
+function tempoText(slope: number): string {
+  const pct = (slope - 1) * 100;
+  if (Math.abs(pct) < 1) return 'On tempo';
+  const rounded = Math.round(Math.abs(pct));
+  return pct < 0 ? `Tempo: ${rounded}% fast` : `Tempo: ${rounded}% slow`;
 }
 
 function Tally({ label, n, variant }: { label: string; n: number; variant: string }) {

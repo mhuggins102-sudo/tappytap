@@ -379,6 +379,14 @@ button {
   font-size: 16px;
 }
 
+.score-headline__tempo {
+  color: var(--fg-dim);
+  font-size: 13px;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .score-headline__badge {
   margin-top: 6px;
   background: linear-gradient(135deg, var(--accent-2), #11a37e);

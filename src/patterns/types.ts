@@ -22,4 +22,5 @@ export interface RoundResult {
   totalScore: number;
   accuracyPct: number;
   judgmentCounts: Record<Judgment | 'extra', number>;
+  tempoFactor: number;
 }

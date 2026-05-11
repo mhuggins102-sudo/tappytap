@@ -1,6 +1,7 @@
 import type { Judgment, JudgmentOrExtra, RoundResult, TapResult } from '../patterns/types';
 
 const WINDOW_MS = 150;
+const WINDOW_SEC = WINDOW_MS / 1000;
 
 interface TierRange {
   maxMs: number;
@@ -48,8 +49,7 @@ export function matchTapLive(tap: number, expected: number[], used: Set<number>)
       bestIdx = i;
     }
   }
-  const windowSec = WINDOW_MS / 1000;
-  if (bestIdx >= 0 && bestDist <= windowSec) {
+  if (bestIdx >= 0 && bestDist <= WINDOW_SEC) {
     const errorMs = (tap - expected[bestIdx]) * 1000;
     const { judgment, points } = judge(errorMs);
     return { expectedIdx: bestIdx, errorMs, judgment, points };
@@ -57,32 +57,115 @@ export function matchTapLive(tap: number, expected: number[], used: Set<number>)
   return { expectedIdx: null, errorMs: null, judgment: 'extra', points: 0 };
 }
 
+function linearFit(xs: number[], ys: number[]): { slope: number; intercept: number } {
+  const n = xs.length;
+  if (n < 2) return { slope: 1, intercept: 0 };
+  let xMean = 0;
+  let yMean = 0;
+  for (let i = 0; i < n; i++) {
+    xMean += xs[i];
+    yMean += ys[i];
+  }
+  xMean /= n;
+  yMean /= n;
+  let num = 0;
+  let den = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = xs[i] - xMean;
+    num += dx * (ys[i] - yMean);
+    den += dx * dx;
+  }
+  if (den === 0) return { slope: 1, intercept: 0 };
+  const slope = num / den;
+  const intercept = yMean - slope * xMean;
+  return { slope, intercept };
+}
+
+interface MatchedTap {
+  tapTime: number;
+  expectedIdx: number | null;
+  errorMs: number | null;
+  judgment: JudgmentOrExtra;
+  points: number;
+}
+
+function greedyMatch(taps: number[], expected: number[], offsetFn: (e: number) => number): MatchedTap[] {
+  const used = new Set<number>();
+  const out: MatchedTap[] = [];
+  for (const tap of taps) {
+    let bestIdx = -1;
+    let bestErr = Infinity;
+    for (let i = 0; i < expected.length; i++) {
+      if (used.has(i)) continue;
+      const err = tap - offsetFn(expected[i]);
+      const absErr = Math.abs(err);
+      if (absErr < Math.abs(bestErr)) {
+        bestErr = err;
+        bestIdx = i;
+      }
+    }
+    if (bestIdx >= 0 && Math.abs(bestErr) <= WINDOW_SEC) {
+      used.add(bestIdx);
+      const errorMs = bestErr * 1000;
+      const { judgment, points } = judge(errorMs);
+      out.push({ tapTime: tap, expectedIdx: bestIdx, errorMs, judgment, points });
+    } else {
+      out.push({ tapTime: tap, expectedIdx: null, errorMs: null, judgment: 'extra', points: 0 });
+    }
+  }
+  return out;
+}
+
 export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundResult {
   const taps = [...tapsSec].sort((a, b) => a - b);
+
+  // Pass 1: greedy match against raw expected positions.
+  const pass1 = greedyMatch(taps, expectedOnsets, (e) => e);
+
+  // Fit a line through the matched pairs so we can separate tempo from rhythm.
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const m of pass1) {
+    if (m.expectedIdx !== null) {
+      xs.push(expectedOnsets[m.expectedIdx]);
+      ys.push(m.tapTime);
+    }
+  }
+  const { slope, intercept } = linearFit(xs, ys);
+
+  // Pass 2: re-match against fitted positions so taps that drifted out of the
+  // raw window can be reclaimed if they were rhythmically on-line.
+  const pass2 = greedyMatch(taps, expectedOnsets, (e) => slope * e + intercept);
+
   const used = new Set<number>();
-  const matched: Array<TapResult & { _order: number }> = [];
+  const tapResults: Array<TapResult & { _order: number }> = [];
   let matchedPoints = 0;
   let matchCount = 0;
-
-  for (const tap of taps) {
-    const m = matchTapLive(tap, expectedOnsets, used);
+  for (const m of pass2) {
     if (m.expectedIdx !== null) {
       used.add(m.expectedIdx);
       matchedPoints += m.points;
       matchCount += 1;
+      tapResults.push({
+        _order: m.expectedIdx,
+        expectedIdx: m.expectedIdx,
+        tapTime: m.tapTime,
+        errorMs: m.errorMs,
+        judgment: m.judgment,
+      });
+    } else {
+      tapResults.push({
+        _order: expectedOnsets.length + tapResults.length,
+        expectedIdx: null,
+        tapTime: m.tapTime,
+        errorMs: null,
+        judgment: 'extra',
+      });
     }
-    matched.push({
-      _order: m.expectedIdx ?? expectedOnsets.length + matched.length,
-      expectedIdx: m.expectedIdx,
-      tapTime: tap,
-      errorMs: m.errorMs,
-      judgment: m.judgment,
-    });
   }
-
   for (let i = 0; i < expectedOnsets.length; i++) {
     if (!used.has(i)) {
-      matched.push({
+      tapResults.push({
         _order: i,
         expectedIdx: i,
         tapTime: null,
@@ -91,9 +174,8 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
       });
     }
   }
-
-  matched.sort((a, b) => a._order - b._order);
-  const results: TapResult[] = matched.map(({ _order: _, ...rest }) => rest);
+  tapResults.sort((a, b) => a._order - b._order);
+  const results: TapResult[] = tapResults.map(({ _order: _, ...rest }) => rest);
 
   const counts: Record<Judgment | 'extra', number> = {
     perfect: 0,
@@ -112,8 +194,9 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
 
   const totalScore = Math.max(0, Math.round(avgMatchQuality * completeness * precision));
   const accuracyPct = totalTaps > 0 ? Math.round(precision * 100) : 0;
+  const tempoFactor = matchCount >= 2 ? slope : 1;
 
-  return { taps: results, totalScore, accuracyPct, judgmentCounts: counts };
+  return { taps: results, totalScore, accuracyPct, judgmentCounts: counts, tempoFactor };
 }
 
 export function shareString(dateStr: string, result: RoundResult): string {
