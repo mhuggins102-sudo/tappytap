@@ -23,6 +23,7 @@ export function DifficultyPicker() {
   const [liveFeedback, setLiveFeedback] = useState(true);
   const [practiceMode, setPracticeMode] = useState(false);
   const [grooveSounds, setGrooveSounds] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     setScores(loadHighScores());
@@ -82,25 +83,23 @@ export function DifficultyPicker() {
               <div className="picker-card__primary">
                 <div className="picker-card__label">{lvl.label}</div>
                 <div className="picker-card__blurb">{lvl.blurb}</div>
+                <div className="picker-card__best">
+                  {best ? `Best ${best.bestScore}` : 'No best yet'}
+                </div>
               </div>
-              <div className="picker-card__stats">
-                {best && best.games > 0 ? (
-                  <>
-                    <div className="picker-card__best">Best {best.bestScore}</div>
-                    <div className="picker-card__avg">
-                      Avg {Math.round(best.totalScore / best.games)}
-                    </div>
-                    <div className="picker-card__sub">
-                      {Math.round(best.totalRhythm / best.games)}r · {Math.round(best.totalTempo / best.games)}t
-                    </div>
-                    <div className="picker-card__sub">
-                      {best.games} {best.games === 1 ? 'play' : 'plays'}
-                    </div>
-                  </>
-                ) : (
-                  <div className="picker-card__no-best">No best yet</div>
-                )}
-              </div>
+              {best && best.games > 0 && (
+                <div className="picker-card__stats">
+                  <div className="picker-card__avg">
+                    Avg {Math.round(best.totalScore / best.games)}
+                  </div>
+                  <div className="picker-card__sub">
+                    {Math.round(best.totalRhythm / best.games)}r · {Math.round(best.totalTempo / best.games)}t
+                  </div>
+                  <div className="picker-card__sub">
+                    {best.games} {best.games === 1 ? 'play' : 'plays'}
+                  </div>
+                </div>
+              )}
             </button>
           );
         })}
@@ -116,53 +115,81 @@ export function DifficultyPicker() {
         Daily challenge {dailyDone ? '✓' : ''}
       </button>
 
-      <div className="toggles">
+      <div className="settings">
         <button
-          className={`toggle ${practiceMode ? 'toggle--on' : ''}`}
+          className="settings__trigger"
           type="button"
-          role="switch"
-          aria-checked={practiceMode}
-          onClick={onTogglePractice}
+          aria-expanded={showSettings}
+          aria-controls="picker-settings-panel"
+          onClick={() => setShowSettings((s) => !s)}
         >
-          <span className="toggle__indicator" />
-          <span className="toggle__label">Practice mode (no scores saved)</span>
+          <span className="settings__gear" aria-hidden="true">⚙</span>
+          <span>{showSettings ? 'Close settings' : 'Settings'}</span>
         </button>
 
-        <button
-          className={`toggle ${liveFeedback ? 'toggle--on' : ''} ${practiceMode ? '' : 'toggle--disabled'}`}
-          type="button"
-          role="switch"
-          aria-checked={liveFeedback}
-          aria-disabled={!practiceMode}
-          disabled={!practiceMode}
-          onClick={onToggleLive}
-          title={practiceMode ? undefined : 'Turn on Practice Mode to use live feedback'}
-        >
-          <span className="toggle__indicator" />
-          <span className="toggle__label">Live timing feedback</span>
-        </button>
-
-        <button
-          className={`toggle ${grooveSounds ? 'toggle--on' : ''}`}
-          type="button"
-          role="switch"
-          aria-checked={grooveSounds}
-          onClick={onToggleGroove}
-        >
-          <span className="toggle__indicator" />
-          <span className="toggle__label">Groove sounds (drums)</span>
-        </button>
-
-        {(scores?.easy?.games || scores?.medium?.games || scores?.hard?.games) ? (
-          <button
-            className="btn btn--small btn--clear-stats"
-            type="button"
-            onClick={onClearStats}
-          >
-            Clear best scores
-          </button>
-        ) : null}
+        {showSettings && (
+          <div className="settings__panel" id="picker-settings-panel">
+            <SettingRow
+              label="Practice mode"
+              hint="No scores saved"
+              on={practiceMode}
+              onToggle={onTogglePractice}
+            />
+            <SettingRow
+              label="Live timing feedback"
+              hint={practiceMode ? 'Color-flashes each tap' : 'Practice mode only'}
+              on={liveFeedback}
+              onToggle={onToggleLive}
+              disabled={!practiceMode}
+            />
+            <SettingRow
+              label="Groove sounds"
+              hint="Drums instead of clicks"
+              on={grooveSounds}
+              onToggle={onToggleGroove}
+            />
+            {(scores?.easy?.games || scores?.medium?.games || scores?.hard?.games) ? (
+              <button
+                className="settings__clear"
+                type="button"
+                onClick={onClearStats}
+              >
+                Clear best scores
+              </button>
+            ) : null}
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+interface SettingRowProps {
+  label: string;
+  hint?: string;
+  on: boolean;
+  onToggle: () => void;
+  disabled?: boolean;
+}
+
+function SettingRow({ label, hint, on, onToggle, disabled }: SettingRowProps) {
+  return (
+    <button
+      className={`setting-row ${on ? 'setting-row--on' : ''} ${disabled ? 'setting-row--disabled' : ''}`}
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-disabled={disabled || undefined}
+      disabled={disabled}
+      onClick={onToggle}
+    >
+      <span className="setting-row__text">
+        <span className="setting-row__label">{label}</span>
+        {hint && <span className="setting-row__hint">{hint}</span>}
+      </span>
+      <span className="setting-row__switch">
+        <span className="setting-row__knob" />
+      </span>
+    </button>
   );
 }

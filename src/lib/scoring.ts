@@ -287,28 +287,22 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
 
   const { slope, intercept, align } = best;
 
-  // Post-process: a MATCH op whose residual after correction exceeds the
-  // window (>150 ms) is more truthfully described as a missed onset plus a
-  // stray tap. Demoting it keeps the tallies and Hit/Clean rates consistent
-  // (no more "Hit rate 100% but 1 miss" inconsistency).
-  const ops: Op[] = [];
-  for (const op of align.ops) {
-    if (op.kind === 'match') {
-      const expCorr = slope * expectedOnsets[op.i] + intercept;
-      const errMs = Math.abs((taps[op.j] - expCorr) * 1000);
-      if (errMs > 150) {
-        ops.push({ kind: 'miss', i: op.i });
-        ops.push({ kind: 'extra', j: op.j });
-        continue;
-      }
-    }
-    ops.push(op);
-  }
+  // A MATCH whose residual exceeds the window is still a single event — the
+  // player took one tap aimed at one expected onset, just with bad timing.
+  // We label it 'miss' (poor timing) but keep it as a single MATCH so it is
+  // not also counted as an EXTRA. Hit rate excludes miss-judged matches
+  // (defined further below), so the per-tap categories don't overlap:
+  //   • Hit rate counts only successful matches (perfect/great/ok/off).
+  //   • Miss tally counts unmatched expected onsets PLUS miss-judged matches.
+  //   • Extra tally counts taps with no expected onset at all.
+  // These three categories partition every tap and every expected onset.
+  const ops: Op[] = align.ops;
 
   type Ordered = TapResult & { _order: number };
   const results: Ordered[] = [];
   let matchedAbsErrorSum = 0;
   let matchCount = 0;
+  let successfulMatchCount = 0;
   let lastExpectedSeen = -1;
 
   for (const op of ops) {
@@ -321,6 +315,7 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
       const { judgment } = judge(errorMs);
       matchedAbsErrorSum += Math.abs(errorMs);
       matchCount++;
+      if (judgment !== 'miss') successfulMatchCount++;
       lastExpectedSeen = op.i;
       results.push({
         _order: op.i * 2,
@@ -383,7 +378,7 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
   const tempoScore = Math.max(0, Math.round(100 * (1 - 2 * Math.abs(tempoFactor - 1))));
   const tempoPct = tempoFactor > 0 ? (1 / tempoFactor - 1) * 100 : 0;
 
-  const completeness = expectedCount > 0 ? matchCount / expectedCount : 1;
+  const completeness = expectedCount > 0 ? successfulMatchCount / expectedCount : 1;
   const cleanliness = totalTaps > 0 ? matchCount / totalTaps : matchCount === 0 ? 1 : 0;
 
   const totalScore =
