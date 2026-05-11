@@ -15,9 +15,15 @@ export function TimelineCompare({ pattern, result }: Props) {
     .map((t) => t.tapTime)
     .filter((t): t is number => t !== null);
 
-  const onTempoMaxTap = tapTimes.length
-    ? Math.max(...tapTimes.map((t) => (slope > 0 ? (t - intercept) / slope : t)))
-    : 0;
+  // Anchor the On-tempo row so the first tap lines up with the first expected
+  // onset. OLS can place a small non-zero intercept even when taps[0] is 0,
+  // which would otherwise push the first dot slightly left or right of zero.
+  const firstTapTime = tapTimes.length ? Math.min(...tapTimes) : 0;
+  const firstExpected = expected.length ? expected[0] : 0;
+  const onTempo = (t: number) =>
+    slope > 0 ? (t - firstTapTime) / slope + firstExpected : t;
+
+  const onTempoMaxTap = tapTimes.length ? Math.max(...tapTimes.map(onTempo)) : 0;
 
   const maxTime = Math.max(
     pattern.durationSec,
@@ -82,7 +88,7 @@ export function TimelineCompare({ pattern, result }: Props) {
           <div className="timeline__track timeline__track--corrected">
             {result.taps.map((tap, i) => {
               if (tap.tapTime === null) return null;
-              const pos = slope > 0 ? (tap.tapTime - intercept) / slope : tap.tapTime;
+              const pos = onTempo(tap.tapTime);
               return (
                 <span
                   key={i}
