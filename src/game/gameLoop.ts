@@ -318,42 +318,117 @@ function scheduleEchoTransition(echoStart: number): void {
 }
 
 /**
- * Replay the pattern once more before the echo phase starts. The second
- * playback is queued back-to-back with the original (or as close to it as
- * possible if the player tapped late) and the echo transition is pushed
- * out to match. No-op if the player already used their one re-listen, if
- * the listen phase has ended, or if the round didn't qualify in the
- * first place (easy / daily / replay / practice).
+ * Replay the pattern once more, fronted by a full count-in just like the
+ * round's original countdown. Available while the player is in the
+ * listening phase OR in the echo phase before their first tap. One use
+ * per round, gated by `listenAgainAvailable` (medium/hard, first scoring
+ * attempt only — daily / replay / practice rounds don't qualify).
+ *
+ * Web Audio events that are already scheduled can't be cancelled
+ * cleanly, so if a press lands while the original pattern is still
+ * audible the new countdown is timed to start at the original pattern's
+ * natural end. Audibly: pattern → brief silence → countdown → replay.
+ * Visually: phase stays 'listening' until the new countdown actually
+ * starts (no UI jump while the previous audio finishes).
  */
 export function listenAgain(): void {
   const state = gameStore.get();
   if (!state.listenAgainAvailable || state.listenAgainUsed) return;
-  if (state.phase.kind !== 'listening') return;
+  const phase = state.phase;
+  const inListening = phase.kind === 'listening';
+  const inPreTapEcho = phase.kind === 'echoing' && phase.echoStartTime === null;
+  if (!inListening && !inPreTapEcho) return;
   if (!currentRound) return;
 
   const round = currentRound;
-  const originalEnd = state.phase.patternEndTime;
-  // Start the replay either at the original pattern's natural end (if
-  // we're still inside the listening playback) or as soon as we can if the
-  // gap before echo has already started. A tiny lead-in keeps the first
-  // note of the replay from getting cut off.
-  const replayStart = Math.max(originalEnd, round.ctx.currentTime + 0.05);
-  const replayEnd = schedulePattern(
-    round.ctx,
+  const ctx = round.ctx;
+  const now = ctx.currentTime;
+
+  // Tear down any pending state transitions, watchdogs, and the tap
+  // capture set up by the original round path. The Web Audio events that
+  // already kicked off will continue playing on their own.
+  for (const t of pendingTimers) window.clearTimeout(t);
+  pendingTimers = [];
+  if (echoTimer !== null) {
+    window.clearTimeout(echoTimer);
+    echoTimer = null;
+  }
+  if (abortTimer !== null) {
+    window.clearTimeout(abortTimer);
+    abortTimer = null;
+  }
+  if (finalizeTimer !== null) {
+    window.clearTimeout(finalizeTimer);
+    finalizeTimer = null;
+  }
+  teardownCapture();
+  currentTaps = [];
+  currentJudgments = [];
+
+  // Find when to start the new countdown. If the original playback is
+  // still audible (pressed mid-listen), defer until just after it ends so
+  // the count beeps don't stack on top of pattern notes.
+  const stillPlaying = inListening && phase.patternEndTime > now;
+  const leadIn = 0.15;
+  const countdownStart = stillPlaying
+    ? phase.patternEndTime + 0.05
+    : now + leadIn;
+  const countdownEnd = scheduleCountdown(
+    ctx,
+    countdownStart,
+    COUNTDOWN_BEATS,
+    round.pattern.bpm,
+  );
+  const patternStart = countdownEnd;
+  const patternEnd = schedulePattern(
+    ctx,
     round.pattern,
-    replayStart,
+    patternStart,
     round.soundTheme,
     round.instrument,
     round.grooveIdx,
   );
-  const newEchoStart = replayEnd + ECHO_GAP_SEC;
-  scheduleEchoTransition(newEchoStart);
+  const echoStart = patternEnd + ECHO_GAP_SEC;
 
-  gameStore.set({
-    ...state,
-    listenAgainUsed: true,
-    phase: { ...state.phase, patternEndTime: replayEnd },
-  });
+  const countdownPhase = {
+    kind: 'countdown' as const,
+    startedAt: countdownStart,
+    endsAt: countdownEnd,
+    beats: COUNTDOWN_BEATS,
+  };
+  if (stillPlaying) {
+    // Hide the button right away; defer the visible countdown switch
+    // until the original pattern audibly finishes.
+    gameStore.set({ ...state, listenAgainUsed: true });
+    const msUntilCountdownVisible = Math.max(0, (countdownStart - now) * 1000);
+    pendingTimers.push(
+      window.setTimeout(() => {
+        gameStore.set({ ...gameStore.get(), phase: countdownPhase });
+      }, msUntilCountdownVisible),
+    );
+  } else {
+    gameStore.set({ ...state, listenAgainUsed: true, phase: countdownPhase });
+  }
+
+  // Transition into the new listening phase when the count-in finishes.
+  const msUntilListening = Math.max(0, (patternStart - ctx.currentTime) * 1000);
+  pendingTimers.push(
+    window.setTimeout(() => {
+      gameStore.set({
+        ...gameStore.get(),
+        phase: {
+          kind: 'listening',
+          pattern: round.pattern,
+          patternStartTime: patternStart,
+          patternEndTime: patternEnd,
+        },
+      });
+    }, msUntilListening),
+  );
+
+  // And finally hand off to the echo phase (the shared scheduler keeps
+  // the echo timer reference consistent).
+  scheduleEchoTransition(echoStart);
 }
 
 function enterEchoPhase(
