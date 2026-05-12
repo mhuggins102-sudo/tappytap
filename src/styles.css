@@ -770,6 +770,16 @@ button {
   color: #2a1f00;
 }
 
+.score-headline__badge--improved {
+  background: linear-gradient(135deg, #2ecc71, #1f9c5a);
+  color: #062a14;
+}
+
+.score-headline__badge-sub {
+  font-weight: 500;
+  opacity: 0.8;
+}
+
 .subscores {
   display: grid;
   grid-template-columns: 1fr 1fr;

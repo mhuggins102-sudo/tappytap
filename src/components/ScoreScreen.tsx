@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { GameState } from '../game/stateMachine';
 import type { RoundResult } from '../patterns/types';
 import { goToArchiveScreen, goToPicker, playAgain, tryAgain } from '../game/gameLoop';
-import { loadHighScores } from '../lib/storage';
-import { loadDailyEntry } from '../lib/storage';
+import { loadHighScores, loadDailyEntry, MAX_DAILY_ATTEMPTS } from '../lib/storage';
 import { todayUtcDateString } from '../patterns/daily';
+import { shareString } from '../lib/scoring';
 import { TimelineCompare } from './TimelineCompare';
 import { DailyRankBox } from './DailyRankBox';
 
@@ -14,20 +14,16 @@ interface Props {
 
 export function ScoreScreen({ state }: Props) {
   const result = state.lastResult;
-  const [share, setShare] = useState<string | null>(null);
   const [bestScore, setBestScore] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (state.isDailyChallenge) {
-      const entry = loadDailyEntry(todayUtcDateString());
-      setShare(entry?.shareString ?? null);
-    } else if (!state.isPractice) {
-      const scores = loadHighScores();
-      setBestScore(scores[state.difficulty]?.bestScore ?? null);
-    } else {
+    if (state.isDailyChallenge || state.isPractice) {
       setBestScore(null);
+      return;
     }
+    const scores = loadHighScores();
+    setBestScore(scores[state.difficulty]?.bestScore ?? null);
   }, [state.isDailyChallenge, state.isPractice, state.difficulty, result]);
 
   if (!result) {
@@ -38,6 +34,24 @@ export function ScoreScreen({ state }: Props) {
       </div>
     );
   }
+
+  const isToday = state.dailyDateStr === todayUtcDateString();
+  // Compute the share string fresh from the in-state result so it's always
+  // in sync with what the player just played (rather than loading from
+  // storage and risking a stale read after a save).
+  const share =
+    state.isDailyChallenge && state.dailyDateStr
+      ? shareString(state.dailyDateStr, result)
+      : null;
+  // Re-read the saved attempt count so we know whether the player has a
+  // retry available. saveDailyEntry has already advanced this for the
+  // round we just finished.
+  const dailyAttempts =
+    state.isDailyChallenge && state.dailyDateStr
+      ? (loadDailyEntry(state.dailyDateStr)?.attempts ?? 0)
+      : 0;
+  const canRetryDaily =
+    state.isDailyChallenge && !state.isPractice && dailyAttempts < MAX_DAILY_ATTEMPTS;
 
   const isNewBest =
     !state.isDailyChallenge &&
@@ -57,6 +71,8 @@ export function ScoreScreen({ state }: Props) {
     }
   };
 
+  const backFromDaily = () => (isToday ? goToPicker() : goToArchiveScreen());
+
   return (
     <div className="screen screen--score">
       {state.lastPattern && <TimelineCompare pattern={state.lastPattern} result={result} />}
@@ -65,6 +81,16 @@ export function ScoreScreen({ state }: Props) {
         <div className="score-headline__number">{result.totalScore}</div>
         <div className="score-headline__label">Overall</div>
         {isNewBest && <div className="score-headline__badge">New best!</div>}
+        {state.dailyImprovedOnRetry && (
+          <div className="score-headline__badge score-headline__badge--improved">
+            New best for this day!
+            {state.dailyPreviousScore !== null && (
+              <span className="score-headline__badge-sub">
+                {' '}(was {state.dailyPreviousScore})
+              </span>
+            )}
+          </div>
+        )}
         {state.isPractice && <div className="score-headline__badge score-headline__badge--practice">Practice — not saved</div>}
         {state.isReplay && !state.isPractice && (
           <div className="score-headline__badge score-headline__badge--practice">Replay — not saved</div>
@@ -79,15 +105,6 @@ export function ScoreScreen({ state }: Props) {
         <DailyRankBox dateStr={state.dailyDateStr} freshResult={result} />
       )}
 
-      {state.isDailyChallenge && share && (
-        <div className="share-box">
-          <code className="share-box__text">{share}</code>
-          <button className="btn btn--small" type="button" onClick={onCopy}>
-            {copied ? 'Copied!' : 'Copy'}
-          </button>
-        </div>
-      )}
-
       <div className="score-actions">
         {!state.isDailyChallenge && (
           <>
@@ -97,23 +114,28 @@ export function ScoreScreen({ state }: Props) {
             <button className="btn" type="button" onClick={playAgain}>
               New beat
             </button>
+            <button className="btn" type="button" onClick={goToPicker}>
+              Change level
+            </button>
           </>
         )}
-        {state.isDailyChallenge &&
-          state.dailyDateStr &&
-          state.dailyDateStr !== todayUtcDateString() && (
-            <>
+        {state.isDailyChallenge && (
+          <>
+            {canRetryDaily && (
               <button className="btn btn--primary" type="button" onClick={tryAgain}>
                 Try again
               </button>
-              <button className="btn" type="button" onClick={goToArchiveScreen}>
-                Back to archive
+            )}
+            <button className="btn" type="button" onClick={backFromDaily}>
+              {isToday ? 'Back' : 'Back to archive'}
+            </button>
+            {share && (
+              <button className="btn" type="button" onClick={onCopy}>
+                {copied ? 'Copied!' : 'Copy'}
               </button>
-            </>
-          )}
-        <button className="btn" type="button" onClick={goToPicker}>
-          Change level
-        </button>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

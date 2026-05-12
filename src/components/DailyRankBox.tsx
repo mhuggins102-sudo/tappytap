@@ -73,8 +73,12 @@ export function DailyRankBox({ dateStr, freshResult }: Props) {
   }
 
   const myScore = rank.score;
+  // Percentile is only meaningful (and shown) once the player pool for the
+  // day is large enough that the number isn't dominated by noise. Below
+  // this threshold a "top 50%" reading from 1 of 2 is misleading.
+  const PERCENTILE_MIN_PLAYERS = 5;
   const percentile =
-    rank.total > 1 && rank.rank > 0
+    rank.total >= PERCENTILE_MIN_PLAYERS && rank.rank > 0
       ? Math.round(((rank.total - rank.rank) / (rank.total - 1)) * 100)
       : null;
 

@@ -43,7 +43,6 @@ export function DailyArchive() {
   return (
     <div className="screen screen--archive">
       <h2 className="subtitle">Past Challenges</h2>
-      <div className="daily-date">Replay days you missed (or try to improve)</div>
       <ul className="archive-list">
         {days.map((d) => {
           const entry = history.entries[d];
@@ -77,10 +76,6 @@ export function DailyArchive() {
       <button className="btn" type="button" onClick={goToPicker}>
         Back
       </button>
-      <p className="daily-note archive-note">
-        Today's challenge is unaffected — visit it from the picker. The archive shows the
-        last {ARCHIVE_WINDOW_DAYS} days; missed days don't expire from your records.
-      </p>
     </div>
   );
 }

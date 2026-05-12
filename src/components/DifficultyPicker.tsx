@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { startRound, goToDailyScreen, goToArchiveScreen } from '../game/gameLoop';
 import {
   clearHighScores,
@@ -41,6 +41,21 @@ export function DifficultyPicker() {
   const [grooveSounds, setGrooveSounds] = useState(() => loadSettings().soundTheme === 'groove');
   const [instrument, setInstrument] = useState<Instrument>(() => loadSettings().instrument);
   const [showSettings, setShowSettings] = useState(false);
+  const settingsPanelRef = useRef<HTMLDivElement | null>(null);
+
+  // When the panel expands, slide it into view so the Instrument dropdown
+  // at the bottom of the panel is visible without the user having to
+  // scroll. Skipped on initial mount (showSettings starts false).
+  useEffect(() => {
+    if (!showSettings) return;
+    const el = settingsPanelRef.current;
+    if (!el) return;
+    // Defer one frame so the panel has laid out before we measure it.
+    const id = window.requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [showSettings]);
 
   const onChangeInstrument = (next: Instrument) => {
     setInstrument(next);
@@ -151,7 +166,7 @@ export function DifficultyPicker() {
         </button>
 
         {showSettings && (
-          <div className="settings__panel" id="picker-settings-panel">
+          <div className="settings__panel" id="picker-settings-panel" ref={settingsPanelRef}>
             <SettingRow
               label="Practice mode"
               hint="No scores saved"
