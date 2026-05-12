@@ -104,9 +104,9 @@ export function ScoreScreen({ state }: Props) {
 
 const SUBSCORE_INFO = {
   rhythm:
-    "How accurately each tap landed. The game adjusts for whatever overall pace you played at, then checks how close each individual tap was to the beat. Tight, on-the-beat taps score high; sloppy timing and missed notes lower this.",
+    "How precisely each tap was timed, relative to your own pace. If you played a little fast or slow but landed each tap right where it should be within that pace, this stays high. Sloppy timing and missed notes lower it.",
   tempo:
-    "How steady your beat was. This isn't about playing at the exact target speed — it measures whether the spacing between your taps stayed consistent. Rushing mid-pattern and slowing down to recover by the end still lowers this.",
+    "How close your pace was to the target, and how steady you held it. Playing too fast or too slow lowers this — so does rushing in one section and slowing in another, even if your average pace ended up right.",
 };
 
 function SubScores({ result }: { result: RoundResult }) {
