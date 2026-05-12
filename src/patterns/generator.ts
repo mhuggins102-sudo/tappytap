@@ -61,7 +61,9 @@ function generateMediumRepeated(rng: Rng): Pattern {
   // Leave the last slot empty so the repeat boundary stays audible.
   const fillableSlots = slotsPerMotif - 1;
   // Enough onsets for "close succession" while leaving room for gaps.
-  const onsetsPerMotif = 7 + Math.floor(rng() * 2); // 7 or 8
+  // Three possible counts so the player isn't stuck always seeing the
+  // same density when the repeated mode comes up.
+  const onsetsPerMotif = 6 + Math.floor(rng() * 3); // 6, 7, or 8
   const repeats = 2;
   const secPerSlot = 60 / bpm / subdivision;
 

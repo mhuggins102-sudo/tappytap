@@ -114,3 +114,43 @@ export async function ensureAudioEngine(): Promise<AudioEngine> {
 export function getEngine(): AudioEngine | null {
   return engine;
 }
+
+// Shared master GainNode that every scheduled sound routes through (via
+// getOutputNode below). Going through a master lets us silence audio
+// that's already been scheduled into Web Audio — disconnecting the
+// master from ctx.destination cuts off every in-flight oscillator
+// immediately, where calling .stop() on each one would require tracking
+// every node we ever created.
+let outputNode: GainNode | null = null;
+
+function makeOutput(ctx: AudioContext): GainNode {
+  const node = ctx.createGain();
+  node.gain.value = 1;
+  node.connect(ctx.destination);
+  return node;
+}
+
+/** Returns the current master destination. clickSynth.ts uses this in
+ *  place of `ctx.destination` so all sounds can be cut at once. */
+export function getOutputNode(ctx: AudioContext): AudioNode {
+  if (!outputNode || outputNode.context !== ctx) {
+    outputNode = makeOutput(ctx);
+  }
+  return outputNode;
+}
+
+/** Silence everything currently scheduled and install a fresh master.
+ *  Subsequent scheduled sounds connect to the new node and play
+ *  normally; the disconnected old master receives the leftover
+ *  scheduled audio but can't route it to the speakers. */
+export function resetOutputNode(ctx: AudioContext): AudioNode {
+  if (outputNode) {
+    try {
+      outputNode.disconnect();
+    } catch {
+      // already disconnected — ignore
+    }
+  }
+  outputNode = makeOutput(ctx);
+  return outputNode;
+}

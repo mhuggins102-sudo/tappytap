@@ -1,3 +1,5 @@
+import { getOutputNode } from './audioContext';
+
 export interface ClickOptions {
   freq: number;
   gain: number;
@@ -19,7 +21,7 @@ export function scheduleClick(ctx: AudioContext, when: number, opts: Partial<Cli
   env.gain.linearRampToValueAtTime(gain, start + 0.002);
   env.gain.exponentialRampToValueAtTime(0.0001, start + decaySec);
 
-  osc.connect(env).connect(ctx.destination);
+  osc.connect(env).connect(getOutputNode(ctx));
   osc.start(start);
   osc.stop(start + decaySec + 0.01);
 }
@@ -51,7 +53,7 @@ export function scheduleBeep(ctx: AudioContext, when: number, opts: BeepOptions)
   env.gain.linearRampToValueAtTime(gain, sustainEnd);
   env.gain.linearRampToValueAtTime(0, start + durationSec);
 
-  osc.connect(env).connect(ctx.destination);
+  osc.connect(env).connect(getOutputNode(ctx));
   osc.start(start);
   osc.stop(start + durationSec + 0.02);
 }
@@ -78,7 +80,7 @@ export function scheduleKick(ctx: AudioContext, when: number): void {
   env.gain.setValueAtTime(0.0001, start);
   env.gain.exponentialRampToValueAtTime(0.9, start + 0.005);
   env.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
-  osc.connect(env).connect(ctx.destination);
+  osc.connect(env).connect(getOutputNode(ctx));
   osc.start(start);
   osc.stop(start + 0.25);
 }
@@ -94,7 +96,7 @@ export function scheduleSnare(ctx: AudioContext, when: number): void {
   noiseEnv.gain.setValueAtTime(0.0001, start);
   noiseEnv.gain.exponentialRampToValueAtTime(0.55, start + 0.003);
   noiseEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
-  noise.connect(hp).connect(noiseEnv).connect(ctx.destination);
+  noise.connect(hp).connect(noiseEnv).connect(getOutputNode(ctx));
   noise.start(start);
   noise.stop(start + 0.2);
   const osc = ctx.createOscillator();
@@ -105,7 +107,7 @@ export function scheduleSnare(ctx: AudioContext, when: number): void {
   oscEnv.gain.setValueAtTime(0.0001, start);
   oscEnv.gain.exponentialRampToValueAtTime(0.35, start + 0.003);
   oscEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.09);
-  osc.connect(oscEnv).connect(ctx.destination);
+  osc.connect(oscEnv).connect(getOutputNode(ctx));
   osc.start(start);
   osc.stop(start + 0.1);
 }
@@ -121,7 +123,7 @@ export function scheduleHat(ctx: AudioContext, when: number): void {
   env.gain.setValueAtTime(0.0001, start);
   env.gain.exponentialRampToValueAtTime(0.28, start + 0.002);
   env.gain.exponentialRampToValueAtTime(0.0001, start + 0.05);
-  noise.connect(hp).connect(env).connect(ctx.destination);
+  noise.connect(hp).connect(env).connect(getOutputNode(ctx));
   noise.start(start);
   noise.stop(start + 0.07);
 }
@@ -136,7 +138,7 @@ export function scheduleTom(ctx: AudioContext, when: number): void {
   env.gain.setValueAtTime(0.0001, start);
   env.gain.exponentialRampToValueAtTime(0.55, start + 0.004);
   env.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
-  osc.connect(env).connect(ctx.destination);
+  osc.connect(env).connect(getOutputNode(ctx));
   osc.start(start);
   osc.stop(start + 0.25);
 }
@@ -151,7 +153,7 @@ export function scheduleHiTom(ctx: AudioContext, when: number): void {
   env.gain.setValueAtTime(0.0001, start);
   env.gain.exponentialRampToValueAtTime(0.5, start + 0.004);
   env.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
-  osc.connect(env).connect(ctx.destination);
+  osc.connect(env).connect(getOutputNode(ctx));
   osc.start(start);
   osc.stop(start + 0.2);
 }
@@ -172,7 +174,7 @@ export function scheduleClap(ctx: AudioContext, when: number): void {
     env.gain.setValueAtTime(0.0001, t);
     env.gain.exponentialRampToValueAtTime(0.45, t + 0.002);
     env.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
-    noise.connect(bp).connect(env).connect(ctx.destination);
+    noise.connect(bp).connect(env).connect(getOutputNode(ctx));
     noise.start(t);
     noise.stop(t + 0.07);
   }
@@ -190,7 +192,7 @@ export function scheduleCowbell(ctx: AudioContext, when: number): void {
   bp.type = 'bandpass';
   bp.frequency.value = 700;
   bp.Q.value = 4;
-  env.connect(ctx.destination);
+  env.connect(getOutputNode(ctx));
   for (const f of freqs) {
     const osc = ctx.createOscillator();
     osc.type = 'square';
@@ -215,7 +217,7 @@ export function scheduleRim(ctx: AudioContext, when: number): void {
   bp.type = 'bandpass';
   bp.frequency.value = 1500;
   bp.Q.value = 5;
-  osc.connect(bp).connect(oscEnv).connect(ctx.destination);
+  osc.connect(bp).connect(oscEnv).connect(getOutputNode(ctx));
   osc.start(start);
   osc.stop(start + 0.06);
 
@@ -224,7 +226,7 @@ export function scheduleRim(ctx: AudioContext, when: number): void {
   const noiseEnv = ctx.createGain();
   noiseEnv.gain.setValueAtTime(0.18, start);
   noiseEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.025);
-  noise.connect(noiseEnv).connect(ctx.destination);
+  noise.connect(noiseEnv).connect(getOutputNode(ctx));
   noise.start(start);
   noise.stop(start + 0.035);
 }
@@ -246,7 +248,7 @@ export function scheduleRide(ctx: AudioContext, when: number): void {
   env.gain.setValueAtTime(0.0001, start);
   env.gain.exponentialRampToValueAtTime(0.22, start + 0.003);
   env.gain.exponentialRampToValueAtTime(0.0001, start + 0.28);
-  noise.connect(hp).connect(peak).connect(env).connect(ctx.destination);
+  noise.connect(hp).connect(peak).connect(env).connect(getOutputNode(ctx));
   noise.start(start);
   noise.stop(start + 0.3);
 }
@@ -262,7 +264,7 @@ export function scheduleShaker(ctx: AudioContext, when: number): void {
   env.gain.setValueAtTime(0.0001, start);
   env.gain.exponentialRampToValueAtTime(0.22, start + 0.008);
   env.gain.exponentialRampToValueAtTime(0.0001, start + 0.09);
-  noise.connect(hp).connect(env).connect(ctx.destination);
+  noise.connect(hp).connect(env).connect(getOutputNode(ctx));
   noise.start(start);
   noise.stop(start + 0.1);
 }
@@ -276,7 +278,7 @@ export function scheduleClave(ctx: AudioContext, when: number): void {
   env.gain.setValueAtTime(0.0001, start);
   env.gain.exponentialRampToValueAtTime(0.4, start + 0.001);
   env.gain.exponentialRampToValueAtTime(0.0001, start + 0.04);
-  osc.connect(env).connect(ctx.destination);
+  osc.connect(env).connect(getOutputNode(ctx));
   osc.start(start);
   osc.stop(start + 0.05);
 }
@@ -299,7 +301,7 @@ export function scheduleMarimba(ctx: AudioContext, when: number, freq: number): 
     env.gain.setValueAtTime(0.0001, start);
     env.gain.exponentialRampToValueAtTime(gain, start + 0.003);
     env.gain.exponentialRampToValueAtTime(0.0001, start + decay);
-    osc.connect(env).connect(ctx.destination);
+    osc.connect(env).connect(getOutputNode(ctx));
     osc.start(start);
     osc.stop(start + decay + 0.02);
   }
@@ -320,7 +322,7 @@ export function scheduleSynthBass(ctx: AudioContext, when: number, freq: number)
   env.gain.setValueAtTime(0.0001, start);
   env.gain.exponentialRampToValueAtTime(0.45, start + 0.005);
   env.gain.exponentialRampToValueAtTime(0.0001, start + 0.4);
-  osc.connect(filt).connect(env).connect(ctx.destination);
+  osc.connect(filt).connect(env).connect(getOutputNode(ctx));
   osc.start(start);
   osc.stop(start + 0.45);
 }
@@ -340,7 +342,7 @@ export function scheduleSynthLead(ctx: AudioContext, when: number, freq: number)
   env.gain.setValueAtTime(0.0001, start);
   env.gain.exponentialRampToValueAtTime(0.16, start + 0.005);
   env.gain.exponentialRampToValueAtTime(0.0001, start + 0.4);
-  osc.connect(filt).connect(env).connect(ctx.destination);
+  osc.connect(filt).connect(env).connect(getOutputNode(ctx));
   osc.start(start);
   osc.stop(start + 0.45);
 }
@@ -366,7 +368,7 @@ export function schedulePiano(ctx: AudioContext, when: number, freq: number): vo
     osc.start(start);
     osc.stop(start + 0.6);
   }
-  mix.connect(ctx.destination);
+  mix.connect(getOutputNode(ctx));
 }
 
 // Kazoo: nasal pitched buzz. Sawtooth through a tight bandpass filter
@@ -386,7 +388,7 @@ export function scheduleKazoo(ctx: AudioContext, when: number, freq: number): vo
   env.gain.exponentialRampToValueAtTime(0.32, start + 0.012);
   env.gain.exponentialRampToValueAtTime(0.18, start + 0.18);
   env.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
-  osc.connect(bp).connect(env).connect(ctx.destination);
+  osc.connect(bp).connect(env).connect(getOutputNode(ctx));
   osc.start(start);
   osc.stop(start + 0.38);
 }
@@ -404,7 +406,7 @@ export function scheduleBikeHorn(ctx: AudioContext, when: number, freq: number):
   env.gain.exponentialRampToValueAtTime(0.34, start + 0.02);
   env.gain.linearRampToValueAtTime(0.3, start + 0.16);
   env.gain.exponentialRampToValueAtTime(0.0001, start + 0.28);
-  lp.connect(env).connect(ctx.destination);
+  lp.connect(env).connect(getOutputNode(ctx));
   for (const ratio of [1, 1.5]) {
     const osc = ctx.createOscillator();
     osc.type = 'square';
@@ -433,7 +435,7 @@ export function scheduleWhoopee(ctx: AudioContext, when: number): void {
   env.gain.exponentialRampToValueAtTime(0.55, start + 0.015);
   env.gain.linearRampToValueAtTime(0.35, start + 0.18);
   env.gain.exponentialRampToValueAtTime(0.0001, start + 0.33);
-  noise.connect(bp).connect(env).connect(ctx.destination);
+  noise.connect(bp).connect(env).connect(getOutputNode(ctx));
   noise.start(start);
   noise.stop(start + 0.36);
 }
@@ -447,7 +449,7 @@ export function scheduleTriangle(ctx: AudioContext, when: number): void {
   env.gain.setValueAtTime(0.0001, start);
   env.gain.exponentialRampToValueAtTime(0.18, start + 0.003);
   env.gain.exponentialRampToValueAtTime(0.0001, start + 0.4);
-  osc.connect(env).connect(ctx.destination);
+  osc.connect(env).connect(getOutputNode(ctx));
   osc.start(start);
   osc.stop(start + 0.42);
 }
