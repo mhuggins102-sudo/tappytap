@@ -26,7 +26,9 @@ export interface RoundResult {
   tempoIntercept: number;
   rhythmScore: number;
   tempoScore: number;
-  /** Average absolute beat-to-beat IOI deviation in milliseconds. */
+  /** Percent the player's slope deviated from 1.0 — the magnitude shown with the fast/slow label. */
+  tempoPct: number;
+  /** Average absolute beat-to-beat IOI deviation in milliseconds. Surfaced as the "ms unsteady" magnitude when tempoDirection is 'mixed'. */
   tempoMsDev: number;
   /** Whether the deviation has a dominant direction; 'mixed' when it doesn't. */
   tempoDirection: 'fast' | 'slow' | 'mixed' | 'on';

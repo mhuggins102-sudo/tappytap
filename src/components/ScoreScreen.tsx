@@ -104,9 +104,9 @@ export function ScoreScreen({ state }: Props) {
 
 const SUBSCORE_INFO = {
   rhythm:
-    "How precisely each tap was timed, relative to your own pace. If you played a little fast or slow but landed each tap right where it should be within that pace, this stays high. Sloppy timing and missed notes lower it.",
+    "How tight your spacing was around your own pace. We fit the best line through your taps and measure how far each tap fell from it. Sloppy or missed taps lower this; a steady (even if wrong-speed) player keeps rhythm high.",
   tempo:
-    "How close your pace was to the target, and how steady you held it. Playing too fast or too slow lowers this — so does rushing in one section and slowing in another, even if your average pace ended up right.",
+    "How close your overall pace was to the target. If your taps followed a steady line but at the wrong slope, this drops. If your taps wandered above and below the target line, your tempo can still read 'unsteady' even when the average came out right.",
 };
 
 function SubScores({ result }: { result: RoundResult }) {
@@ -199,9 +199,8 @@ function JudgmentSummary({ result }: { result: RoundResult }) {
 
 function tempoText(r: RoundResult): string {
   if (r.tempoDirection === 'on') return 'On tempo';
-  const ms = Math.round(r.tempoMsDev);
-  if (r.tempoDirection === 'mixed') return `~${ms} ms unsteady`;
-  return `~${ms} ms ${r.tempoDirection}`;
+  if (r.tempoDirection === 'mixed') return `~${Math.round(r.tempoMsDev)} ms unsteady`;
+  return `~${r.tempoPct}% ${r.tempoDirection}`;
 }
 
 function Tally({ label, n, variant }: { label: string; n: number; variant: string }) {

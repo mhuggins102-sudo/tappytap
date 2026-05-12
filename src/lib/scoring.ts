@@ -189,27 +189,40 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
 
   const tempoFactor = matchedCount >= 2 ? slope : 1;
   const tempoIntercept = 0;
-  // Tempo shares Rhythm's scoring shape: each per-IOI deviation is capped
-  // at SCORE_PENALTY_CAP_MS and averaged, then a fully-capped element
-  // contributes exactly 100/N to the deduction. Same axis, same slope as
-  // Rhythm — so an 80 in either subscore really does mean similar precision.
+  // Tempo is slope-based: the deviation of the best-fit line's slope from 1
+  // (the target pace). 2 points lost per percent of slope deviation, so a
+  // 10% off-pace player scores 80, 20% off scores 60, and a double-time
+  // player (slope ≈ 0.5) hits 0. This calibration matches Rhythm's 1-point-
+  // per-3-ms-residual curve at the "ridiculous play" mark (50% off-pace ↔
+  // 300 ms average residual).
   const hasTempoData = matchedCount >= 2;
+  const slopeDevPct = Math.abs(tempoFactor - 1) * 100;
+  const tempoPct = Math.round(slopeDevPct);
+  const tempoScore = hasTempoData
+    ? Math.max(0, Math.round(100 - 2 * slopeDevPct))
+    : 0;
+
+  // Direction label is independent of the slope-based score. It comes from
+  // per-IOI stats so mid-pattern wobble (slope ≈ 1 but bouncing gaps)
+  // surfaces as 'unsteady' instead of being silently hidden by a clean slope.
   const tStats = hasTempoData
     ? tempoStatistics(expectedOnsets, taps, matchedCount, SCORE_PENALTY_CAP_MS)
     : { meanAbsMsDev: 0, meanMsDev: 0 };
-  const tempoScore = hasTempoData
-    ? Math.max(0, Math.round(100 - tStats.meanAbsMsDev * SCORE_COEFFICIENT))
-    : 0;
   const tempoMsDev = tStats.meanAbsMsDev;
-  // Direction: 'fast' or 'slow' only when the signed mean is dominant enough
-  // (≥ 50% of the absolute mean) to be the obvious story; otherwise the
-  // fluctuations roughly cancel and we label it 'mixed' so the player knows
-  // they were unsteady rather than systematically off.
+  // Direction:
+  //   • If slope is clearly off the target (≥ 0.5%), it's the obvious story —
+  //     direction is 'fast' or 'slow' from the slope sign.
+  //   • If slope is ≈ 1 but per-IOI deviations exist, check the signed mean:
+  //     a uniformly-signed lean ⇒ direction; cancelling fluctuations ⇒ 'mixed'.
+  //   • Otherwise 'on' tempo (no measurable deviation).
   let tempoDirection: 'fast' | 'slow' | 'mixed' | 'on';
-  if (tStats.meanAbsMsDev < 3) {
+  if (!hasTempoData) {
+    tempoDirection = 'on';
+  } else if (slopeDevPct >= 0.5) {
+    tempoDirection = tempoFactor < 1 ? 'fast' : 'slow';
+  } else if (tStats.meanAbsMsDev < 3) {
     tempoDirection = 'on';
   } else if (Math.abs(tStats.meanMsDev) > 0.5 * tStats.meanAbsMsDev) {
-    // Negative dev = tap_ioi < exp_ioi = playing faster.
     tempoDirection = tStats.meanMsDev < 0 ? 'fast' : 'slow';
   } else {
     tempoDirection = 'mixed';
@@ -233,6 +246,7 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
     tempoIntercept,
     rhythmScore,
     tempoScore,
+    tempoPct,
     tempoMsDev,
     tempoDirection,
     completenessPct: Math.round(completeness * 100),
