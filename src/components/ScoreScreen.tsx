@@ -106,7 +106,7 @@ const SUBSCORE_INFO = {
   rhythm:
     "How tight your spacing was around your own pace. We fit the best line through your taps and measure how far each tap fell from it. Sloppy or missed taps lower this; a steady (even if wrong-speed) player keeps rhythm high.",
   tempo:
-    "How close your overall pace was to the target. If your taps followed a steady line but at the wrong slope, this drops. If your taps wandered above and below the target line, your tempo can still read 'unsteady' even when the average came out right.",
+    "How close your overall pace was to the target. The fitted line through your taps has a slope; we compare it to the target slope of 1. Each percent off the target costs ~4 points (5% off ≈ 80, 10% ≈ 60, 25% ≈ 0). Mid-pattern wobble around an on-target average is captured by the 'unsteady' label rather than the score itself.",
 };
 
 function SubScores({ result }: { result: RoundResult }) {

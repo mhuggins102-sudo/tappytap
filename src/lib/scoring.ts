@@ -189,17 +189,14 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
 
   const tempoFactor = matchedCount >= 2 ? slope : 1;
   const tempoIntercept = 0;
-  // Tempo is slope-based: the deviation of the best-fit line's slope from 1
-  // (the target pace). 2 points lost per percent of slope deviation, so a
-  // 10% off-pace player scores 80, 20% off scores 60, and a double-time
-  // player (slope ≈ 0.5) hits 0. This calibration matches Rhythm's 1-point-
-  // per-3-ms-residual curve at the "ridiculous play" mark (50% off-pace ↔
-  // 300 ms average residual).
+  // Tempo is slope-based: the deviation of the best-fit line's slope from
+  // 1 (the target pace). 4 points lost per percent of slope deviation, so
+  // 5% off ⇒ 80, 10% ⇒ 60, 20% ⇒ 20, and 25% (or more) hits the floor at 0.
   const hasTempoData = matchedCount >= 2;
   const slopeDevPct = Math.abs(tempoFactor - 1) * 100;
   const tempoPct = Math.round(slopeDevPct);
   const tempoScore = hasTempoData
-    ? Math.max(0, Math.round(100 - 2 * slopeDevPct))
+    ? Math.max(0, Math.round(100 - 4 * slopeDevPct))
     : 0;
 
   // Direction label is independent of the slope-based score. It comes from
@@ -230,10 +227,14 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
 
   const completeness = expectedCount > 0 ? successCount / expectedCount : 1;
 
-  // Total = simple average of the two visible subscores so the headline
-  // never reads lower than your skill on either dimension. Two 60s give
-  // 60, not 36 (which is what the multiplicative formula produced).
-  const totalScore = Math.max(0, Math.round((rhythmScore + tempoScore) / 2));
+  // Total = geometric mean of the two visible subscores. This rewards
+  // balance: 75/75 ⇒ 75 stays put, but 50/100 drops to 71 — the same
+  // arithmetic average, lower geo mean. A zero on either dimension
+  // (no taps, way-off tempo) zeroes the total too.
+  const totalScore = Math.max(
+    0,
+    Math.round(Math.sqrt(rhythmScore * tempoScore)),
+  );
 
   const accuracyPct = Math.round(completeness * 100);
 
