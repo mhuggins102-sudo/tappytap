@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GameState } from '../game/stateMachine';
 import type { RoundResult } from '../patterns/types';
-import { goToPicker, playAgain, tryAgain } from '../game/gameLoop';
+import { goToArchiveScreen, goToPicker, playAgain, tryAgain } from '../game/gameLoop';
 import { loadHighScores } from '../lib/storage';
 import { loadDailyEntry } from '../lib/storage';
 import { todayUtcDateString } from '../patterns/daily';
 import { TimelineCompare } from './TimelineCompare';
+import { DailyRankBox } from './DailyRankBox';
 
 interface Props {
   state: GameState;
@@ -74,6 +75,10 @@ export function ScoreScreen({ state }: Props) {
 
       <JudgmentSummary result={result} />
 
+      {state.isDailyChallenge && state.dailyDateStr && !state.isPractice && (
+        <DailyRankBox dateStr={state.dailyDateStr} freshResult={result} />
+      )}
+
       {state.isDailyChallenge && share && (
         <div className="share-box">
           <code className="share-box__text">{share}</code>
@@ -94,6 +99,18 @@ export function ScoreScreen({ state }: Props) {
             </button>
           </>
         )}
+        {state.isDailyChallenge &&
+          state.dailyDateStr &&
+          state.dailyDateStr !== todayUtcDateString() && (
+            <>
+              <button className="btn btn--primary" type="button" onClick={tryAgain}>
+                Try again
+              </button>
+              <button className="btn" type="button" onClick={goToArchiveScreen}>
+                Back to archive
+              </button>
+            </>
+          )}
         <button className="btn" type="button" onClick={goToPicker}>
           Change level
         </button>

@@ -61,10 +61,29 @@ export function goToPicker(): void {
   gameStore.set({ ...gameStore.get(), screen: 'picker', phase: { kind: 'idle' } });
 }
 
-export function goToDailyScreen(): void {
+export function goToDailyScreen(dateStr?: string): void {
   clearTimers();
   teardownCapture();
-  gameStore.set({ ...gameStore.get(), screen: 'daily', phase: { kind: 'idle' } });
+  const date = dateStr ?? todayUtcDateString();
+  gameStore.set({
+    ...gameStore.get(),
+    screen: 'daily',
+    dailyDateStr: date,
+    isDailyChallenge: true,
+    phase: { kind: 'idle' },
+  });
+}
+
+export function goToArchiveScreen(): void {
+  clearTimers();
+  teardownCapture();
+  gameStore.set({
+    ...gameStore.get(),
+    screen: 'archive',
+    isDailyChallenge: false,
+    dailyDateStr: null,
+    phase: { kind: 'idle' },
+  });
 }
 
 export async function dismissStart(): Promise<void> {
@@ -84,12 +103,34 @@ export async function startRound(difficulty: Difficulty): Promise<void> {
  * again" button. Replays are flagged as such so finalizeRound skips
  * recording them to the player's lifetime stats — only the first attempt
  * at a beat counts toward best score / averages.
+ *
+ * Today's daily challenge is one-shot and cannot be retried. Archived
+ * daily challenges can be retried freely (the storage layer keeps the
+ * best score for that date).
  */
 export async function tryAgain(): Promise<void> {
   const state = gameStore.get();
-  if (!state.lastPattern || state.isDailyChallenge) return;
+  if (!state.lastPattern) return;
+  const isTodayDaily =
+    state.isDailyChallenge && state.dailyDateStr === todayUtcDateString();
+  if (isTodayDaily) return;
   kickAudioSync();
   const eng = await ensureAudioEngine();
+  // Archived daily: re-run the daily start path so the day's date is
+  // attached to the resulting save. Lifetime-stat rounds use the regular
+  // replay flow with isReplay=true.
+  if (state.isDailyChallenge && state.dailyDateStr) {
+    await beginRound(
+      eng.ctx,
+      state.lastPattern,
+      'medium',
+      true,
+      false,
+      state.lastGrooveIdx ?? undefined,
+      state.dailyDateStr,
+    );
+    return;
+  }
   await beginRound(
     eng.ctx,
     state.lastPattern,
@@ -100,16 +141,21 @@ export async function tryAgain(): Promise<void> {
   );
 }
 
-export async function startDailyRound(): Promise<void> {
+export async function startDailyRound(forDate?: string): Promise<void> {
   kickAudioSync();
-  const dateStr = todayUtcDateString();
+  const dateStr = forDate ?? todayUtcDateString();
+  const isToday = dateStr === todayUtcDateString();
   const existing = loadDailyEntry(dateStr);
-  if (existing) {
+  // Today is one-shot: if already played, surface the saved result. Archived
+  // days are replayable (best score wins on save), so skip the early return
+  // and start a fresh round even when an entry already exists.
+  if (existing && isToday) {
     gameStore.set({
       ...gameStore.get(),
       screen: 'score',
       difficulty: 'medium',
       isDailyChallenge: true,
+      dailyDateStr: dateStr,
       isPractice: false,
       isReplay: false,
       lastResult: existing.result,
@@ -119,7 +165,7 @@ export async function startDailyRound(): Promise<void> {
   }
   const eng = await ensureAudioEngine();
   const pattern = generateDailyPattern(dateStr);
-  await beginRound(eng.ctx, pattern, 'medium', true, false);
+  await beginRound(eng.ctx, pattern, 'medium', true, false, undefined, dateStr);
 }
 
 async function beginRound(
@@ -129,6 +175,7 @@ async function beginRound(
   isDailyChallenge: boolean,
   isReplay: boolean,
   forcedGrooveIdx?: number,
+  dailyDateStr?: string,
 ): Promise<void> {
   clearTimers();
   teardownCapture();
@@ -160,6 +207,7 @@ async function beginRound(
     screen: 'game',
     difficulty,
     isDailyChallenge,
+    dailyDateStr: dailyDateStr ?? null,
     isPractice,
     isReplay,
     lastResult: gameStore.get().lastResult,
@@ -328,10 +376,11 @@ function finalizeRound(
   const isReplay = state.isReplay;
 
   // Replays of a previous beat don't update lifetime stats — only the first
-  // attempt counts. Practice mode and daily history work as before.
+  // attempt counts. Daily-challenge saves use the round's stored date so
+  // archived days update the history map for that date, not today.
   if (!isPractice && !isReplay) {
     if (isDailyChallenge) {
-      const dateStr = todayUtcDateString();
+      const dateStr = state.dailyDateStr ?? todayUtcDateString();
       saveDailyEntry({ date: dateStr, result, shareString: shareString(dateStr, result) });
     } else {
       recordRound(difficulty, result);
@@ -353,7 +402,13 @@ function finalizeRound(
 export function playAgain(): void {
   const state = gameStore.get();
   if (state.isDailyChallenge) {
-    goToDailyScreen();
+    // Archived daily: return to the archive list. Today's daily: bounce
+    // back to today's daily screen, which surfaces the existing entry.
+    if (state.dailyDateStr && state.dailyDateStr !== todayUtcDateString()) {
+      goToArchiveScreen();
+    } else {
+      goToDailyScreen();
+    }
     return;
   }
   void startRound(state.difficulty);

@@ -1,6 +1,6 @@
 import type { Difficulty, Judgment, Pattern, RoundResult } from '../patterns/types';
 
-export type Screen = 'start' | 'picker' | 'game' | 'score' | 'daily';
+export type Screen = 'start' | 'picker' | 'game' | 'score' | 'daily' | 'archive';
 
 export interface TapFlash {
   judgment: Judgment;
@@ -27,6 +27,8 @@ export interface GameState {
   screen: Screen;
   difficulty: Difficulty;
   isDailyChallenge: boolean;
+  /** Which date's daily challenge is in play; null outside daily mode. */
+  dailyDateStr: string | null;
   isPractice: boolean;
   // True while the current round is a Try-again replay of the previous
   // pattern. Replays don't update high-score / lifetime-average stats so
@@ -44,6 +46,7 @@ export const INITIAL_STATE: GameState = {
   screen: 'start',
   difficulty: 'easy',
   isDailyChallenge: false,
+  dailyDateStr: null,
   isPractice: false,
   isReplay: false,
   phase: { kind: 'idle' },

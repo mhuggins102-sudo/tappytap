@@ -1,0 +1,21 @@
+# Cloudflare Pages + Functions configuration.
+#
+# Local dev:
+#   wrangler pages dev dist --d1=DB
+#
+# First-time setup (run once, then update database_id below with the value
+# wrangler prints; commit the file with the real id):
+#   wrangler d1 create tappytap
+#   wrangler d1 execute tappytap --remote --file=./schema.sql
+#
+# After deploying to Cloudflare Pages, bind the D1 database in the Pages
+# dashboard (Settings → Functions → D1 database bindings) using the binding
+# name "DB" so this file matches production.
+name = "tappytap"
+compatibility_date = "2025-01-01"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tappytap"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
