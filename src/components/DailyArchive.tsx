@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { goToDailyScreen, goToPicker } from '../game/gameLoop';
 import { loadDailyHistory } from '../lib/storage';
+import { dailyDifficultyFor } from '../patterns/daily';
 
 const ARCHIVE_WINDOW_DAYS = 30;
 
@@ -47,6 +48,7 @@ export function DailyArchive() {
         {days.map((d) => {
           const entry = history.entries[d];
           const label = formatDateLabel(d);
+          const difficulty = dailyDifficultyFor(d);
           return (
             <li key={d}>
               <button
@@ -57,6 +59,11 @@ export function DailyArchive() {
                 <span className="archive-row__date">
                   <span className="archive-row__day">{label}</span>
                   <span className="archive-row__iso">{d}</span>
+                  <span
+                    className={`daily-difficulty daily-difficulty--${difficulty} daily-difficulty--tiny`}
+                  >
+                    {difficulty}
+                  </span>
                 </span>
                 {entry ? (
                   <span className="archive-row__score">

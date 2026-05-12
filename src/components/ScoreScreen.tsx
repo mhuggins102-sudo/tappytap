@@ -4,7 +4,7 @@ import type { RoundResult } from '../patterns/types';
 import { goToArchiveScreen, goToPicker, playAgain, tryAgain } from '../game/gameLoop';
 import { loadHighScores, loadDailyEntry, MAX_DAILY_ATTEMPTS } from '../lib/storage';
 import { todayUtcDateString } from '../patterns/daily';
-import { shareString } from '../lib/scoring';
+import { shareDailyResult } from '../lib/share';
 import { TimelineCompare } from './TimelineCompare';
 import { DailyRankBox } from './DailyRankBox';
 
@@ -15,7 +15,7 @@ interface Props {
 export function ScoreScreen({ state }: Props) {
   const result = state.lastResult;
   const [bestScore, setBestScore] = useState<number | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [shareLabel, setShareLabel] = useState('Share');
 
   useEffect(() => {
     if (state.isDailyChallenge || state.isPractice) {
@@ -36,13 +36,6 @@ export function ScoreScreen({ state }: Props) {
   }
 
   const isToday = state.dailyDateStr === todayUtcDateString();
-  // Compute the share string fresh from the in-state result so it's always
-  // in sync with what the player just played (rather than loading from
-  // storage and risking a stale read after a save).
-  const share =
-    state.isDailyChallenge && state.dailyDateStr
-      ? shareString(state.dailyDateStr, result)
-      : null;
   // Re-read the saved attempt count so we know whether the player has a
   // retry available. saveDailyEntry has already advanced this for the
   // round we just finished.
@@ -60,14 +53,12 @@ export function ScoreScreen({ state }: Props) {
     bestScore !== null &&
     result.totalScore === bestScore;
 
-  const onCopy = async () => {
-    if (!share) return;
-    try {
-      await navigator.clipboard.writeText(share);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // clipboard may be unavailable; silently ignore
+  const onShare = async () => {
+    if (!state.dailyDateStr) return;
+    const outcome = await shareDailyResult(state.dailyDateStr, result);
+    if (outcome === 'copied') {
+      setShareLabel('Copied!');
+      window.setTimeout(() => setShareLabel('Share'), 1500);
     }
   };
 
@@ -127,11 +118,11 @@ export function ScoreScreen({ state }: Props) {
               </button>
             )}
             <button className="btn" type="button" onClick={backFromDaily}>
-              {isToday ? 'Back' : 'Back to archive'}
+              Back
             </button>
-            {share && (
-              <button className="btn" type="button" onClick={onCopy}>
-                {copied ? 'Copied!' : 'Copy'}
+            {state.dailyDateStr && (
+              <button className="btn" type="button" onClick={() => void onShare()}>
+                {shareLabel}
               </button>
             )}
           </>

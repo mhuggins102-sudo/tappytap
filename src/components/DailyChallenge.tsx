@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { startDailyRound, goToPicker, goToArchiveScreen } from '../game/gameLoop';
 import { loadDailyEntry, MAX_DAILY_ATTEMPTS, type DailyEntry } from '../lib/storage';
-import { todayUtcDateString } from '../patterns/daily';
+import { dailyDifficultyFor, todayUtcDateString } from '../patterns/daily';
+import { shareDailyResult } from '../lib/share';
 import type { GameState } from '../game/stateMachine';
 import { DailyRankBox } from './DailyRankBox';
 
@@ -15,23 +16,23 @@ export function DailyChallenge({ state }: Props) {
   const today = todayUtcDateString();
   const dateStr = state.dailyDateStr ?? today;
   const isToday = dateStr === today;
+  const difficulty = dailyDifficultyFor(dateStr);
 
   const [entry, setEntry] = useState<DailyEntry | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [shareLabel, setShareLabel] = useState('Share');
 
   useEffect(() => {
     setEntry(loadDailyEntry(dateStr));
   }, [dateStr]);
 
-  const onCopy = async () => {
+  const onShare = async () => {
     if (!entry) return;
-    try {
-      await navigator.clipboard.writeText(entry.shareString);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // ignore
+    const outcome = await shareDailyResult(dateStr, entry.result);
+    if (outcome === 'copied') {
+      setShareLabel('Copied!');
+      window.setTimeout(() => setShareLabel('Share'), 1500);
     }
+    // 'shared' or 'cancelled' or 'failed' — leave the button label alone.
   };
 
   const backToList = () => (isToday ? goToPicker() : goToArchiveScreen());
@@ -40,14 +41,14 @@ export function DailyChallenge({ state }: Props) {
   return (
     <div className="screen screen--daily">
       <h2 className="subtitle">{isToday ? 'Daily Challenge' : 'Past Challenge'}</h2>
-      <div className="daily-date">{dateStr} (UTC)</div>
+      <div className="daily-meta">
+        <span className="daily-date">{dateStr} (UTC)</span>
+        <span className={`daily-difficulty daily-difficulty--${difficulty}`}>
+          {difficulty}
+        </span>
+      </div>
       {entry ? (
         <>
-          <p className="daily-note">
-            {canRetry
-              ? 'Your best for this day so far — one more attempt available.'
-              : "You've used both attempts. Come back tomorrow for a new pattern."}
-          </p>
           <div className="score-headline">
             <div className="score-headline__number">{entry.result.totalScore}</div>
             <div className="score-headline__label">Overall</div>
@@ -74,10 +75,10 @@ export function DailyChallenge({ state }: Props) {
               </button>
             )}
             <button className="btn" type="button" onClick={backToList}>
-              {isToday ? 'Back' : 'Back to archive'}
+              Back
             </button>
-            <button className="btn" type="button" onClick={onCopy}>
-              {copied ? 'Copied!' : 'Copy'}
+            <button className="btn" type="button" onClick={() => void onShare()}>
+              {shareLabel}
             </button>
           </div>
         </>
@@ -96,7 +97,7 @@ export function DailyChallenge({ state }: Props) {
             {isToday ? "Play today's pattern" : 'Play this challenge'}
           </button>
           <button className="btn" type="button" onClick={backToList}>
-            {isToday ? 'Back' : 'Back to archive'}
+            Back
           </button>
         </>
       )}

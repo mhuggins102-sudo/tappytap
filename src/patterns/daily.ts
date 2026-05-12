@@ -1,6 +1,6 @@
 import { rngFromString } from '../lib/rng';
 import { generatePattern } from './generator';
-import type { Pattern } from './types';
+import type { Difficulty, Pattern } from './types';
 
 export function todayUtcDateString(now: Date = new Date()): string {
   const y = now.getUTCFullYear();
@@ -9,7 +9,19 @@ export function todayUtcDateString(now: Date = new Date()): string {
   return `${y}-${m}-${d}`;
 }
 
+/**
+ * The daily challenge alternates between medium and hard from one date to
+ * the next. A small dedicated seed (separate from the pattern seed) chooses
+ * the difficulty so the result is stable for any given date but can be
+ * computed without generating the full pattern.
+ */
+export function dailyDifficultyFor(dateStr: string): Exclude<Difficulty, 'easy'> {
+  const rng = rngFromString(`tappytap:difficulty:${dateStr}`);
+  return rng() < 0.5 ? 'medium' : 'hard';
+}
+
 export function generateDailyPattern(dateStr: string): Pattern {
+  const difficulty = dailyDifficultyFor(dateStr);
   const rng = rngFromString(`tappytap:${dateStr}`);
-  return generatePattern('medium', rng);
+  return generatePattern(difficulty, rng);
 }

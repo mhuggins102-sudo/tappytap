@@ -95,7 +95,7 @@ export function DailyRankBox({ dateStr, freshResult }: Props) {
           </div>
         )}
       </div>
-      <DistributionChart
+      <DistributionCurve
         distribution={rank.distribution}
         highlightScore={myScore ?? freshResult?.totalScore ?? null}
       />
@@ -108,32 +108,92 @@ export function DailyRankBox({ dateStr, freshResult }: Props) {
   );
 }
 
-function DistributionChart({
+/**
+ * Build a smooth SVG path through a series of points using Catmull-Rom
+ * splines converted to cubic Beziers. The control points are derived from
+ * the neighbours on each side so the resulting curve passes exactly
+ * through every input point with continuous tangents.
+ */
+function catmullRomPath(points: Array<{ x: number; y: number }>): string {
+  if (points.length === 0) return '';
+  if (points.length === 1) return `M ${points[0].x},${points[0].y}`;
+  const segs: string[] = [`M ${points[0].x.toFixed(2)},${points[0].y.toFixed(2)}`];
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] ?? points[i];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2] ?? points[i + 1];
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    segs.push(
+      `C ${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)}`,
+    );
+  }
+  return segs.join(' ');
+}
+
+function DistributionCurve({
   distribution,
   highlightScore,
 }: {
   distribution: number[];
   highlightScore: number | null;
 }) {
+  const n = distribution.length;
+  // Logical drawing area; SVG scales to the rendered size via viewBox.
+  const w = 100;
+  const h = 32;
+  const padY = 2;
   const max = Math.max(1, ...distribution);
+  // Bucket centers, spread evenly across the full width so each bucket
+  // sits at the midpoint of its band.
+  const points = distribution.map((count, i) => {
+    const x = ((i + 0.5) / n) * w;
+    const y = h - padY - (count / max) * (h - padY * 2);
+    return { x, y };
+  });
+  const linePath = catmullRomPath(points);
+  const areaPath = `${linePath} L ${w},${h} L 0,${h} Z`;
+
+  // 100/n is the score range per bucket; clamp to the last bucket so
+  // a perfect 100 still lands inside the curve.
+  const bucketSize = 100 / n;
   const highlightBucket =
     highlightScore !== null
-      ? Math.max(0, Math.min(9, Math.floor(highlightScore / 10)))
+      ? Math.max(0, Math.min(n - 1, Math.floor(highlightScore / bucketSize)))
       : null;
+  const highlight =
+    highlightBucket !== null ? points[highlightBucket] : null;
+
   return (
-    <div className="dist-chart" role="img" aria-label="Score distribution">
-      {distribution.map((count, i) => {
-        const h = (count / max) * 100;
-        const isMine = i === highlightBucket;
-        return (
-          <div
-            key={i}
-            className={`dist-chart__bar ${isMine ? 'dist-chart__bar--mine' : ''}`}
-            style={{ height: `${Math.max(2, h)}%` }}
-            title={`${i * 10}–${i === 9 ? 100 : i * 10 + 9}: ${count}`}
+    <svg
+      className="dist-chart"
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="none"
+      role="img"
+      aria-label="Score distribution"
+    >
+      <path className="dist-chart__area" d={areaPath} />
+      <path className="dist-chart__line" d={linePath} />
+      {highlight && (
+        <>
+          <line
+            className="dist-chart__highlight-line"
+            x1={highlight.x}
+            x2={highlight.x}
+            y1={highlight.y}
+            y2={h}
           />
-        );
-      })}
-    </div>
+          <circle
+            className="dist-chart__highlight-dot"
+            cx={highlight.x}
+            cy={highlight.y}
+            r={1.6}
+          />
+        </>
+      )}
+    </svg>
   );
 }
