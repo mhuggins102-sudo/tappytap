@@ -104,9 +104,9 @@ export function ScoreScreen({ state }: Props) {
 
 const SUBSCORE_INFO = {
   rhythm:
-    "How tight your spacing was around your own pace. We fit a line-of-best-fit through your taps (pinned at 0 since the first tap is the start of the round) and measure how far each tap fell from it. Sloppy or missed taps lower this; a steady (even if wrong-speed) player keeps rhythm high.",
+    "How tight your spacing was around your own pace. We estimate your pace as the average of (tap time / expected time) and measure how far each tap fell from that fitted line. Sloppy or missed taps lower this; a steady (even if wrong-speed) player keeps rhythm high.",
   tempo:
-    "How close your overall pace was to the target. The slope of the line-of-best-fit through your taps is compared to the target slope of 1. Each percent off the target costs ~4 points (5% off ≈ 80, 10% ≈ 60, 25% ≈ 0). Mid-pattern wobble around an on-target average is captured by the 'unsteady' label rather than the score itself.",
+    "How close your overall pace was to the target. We compare your average tap-to-expected ratio to the target ratio of 1. Each percent off costs ~4 points (5% off ≈ 80, 10% ≈ 60, 25% ≈ 0). Mid-pattern wobble around an on-target average gets the 'unsteady' label rather than dragging the score.",
 };
 
 function SubScores({ result }: { result: RoundResult }) {
