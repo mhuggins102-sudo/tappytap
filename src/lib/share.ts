@@ -18,7 +18,12 @@ export async function shareDailyResult(
   const text =
     `I scored ${result.totalScore} on TappyTap ${dateStr} ` +
     `(${result.rhythmScore}r / ${result.tempoScore}t)`;
-  const url = typeof window !== 'undefined' ? window.location.origin + '/' : '';
+  // Deep-link to the specific day so opening the shared link drops the
+  // recipient straight into that challenge instead of the picker screen.
+  const url =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/?d=${encodeURIComponent(dateStr)}`
+      : '';
 
   const shareData: ShareData = { title: 'TappyTap', text, url };
 

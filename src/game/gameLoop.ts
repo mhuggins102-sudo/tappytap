@@ -40,6 +40,22 @@ let currentTaps: number[] = [];
 let currentJudgments: Judgment[] = [];
 let finalizeTimer: number | null = null;
 let abortTimer: number | null = null;
+let echoTimer: number | null = null;
+// Snapshot of the audio/state info for the currently-running round, so
+// listenAgain() can re-schedule pattern playback and the echo transition
+// without re-deriving them from scratch.
+let currentRound:
+  | {
+      ctx: AudioContext;
+      pattern: Pattern;
+      difficulty: Difficulty;
+      isDailyChallenge: boolean;
+      isPractice: boolean;
+      soundTheme: SoundTheme;
+      instrument: Instrument;
+      grooveIdx: number;
+    }
+  | null = null;
 
 function clearTimers(): void {
   for (const t of pendingTimers) window.clearTimeout(t);
@@ -52,6 +68,11 @@ function clearTimers(): void {
     window.clearTimeout(abortTimer);
     abortTimer = null;
   }
+  if (echoTimer !== null) {
+    window.clearTimeout(echoTimer);
+    echoTimer = null;
+  }
+  currentRound = null;
 }
 
 function teardownCapture(): void {
@@ -219,6 +240,23 @@ async function beginRound(
   );
   const echoStart = patternEnd + ECHO_GAP_SEC;
 
+  // Listen Again is only offered on the first scoring attempt of a
+  // non-daily Medium/Hard round. Practice doesn't qualify either since
+  // those rounds don't count.
+  const listenAgainAvailable =
+    !isDailyChallenge && !isReplay && !isPractice && difficulty !== 'easy';
+
+  currentRound = {
+    ctx,
+    pattern,
+    difficulty,
+    isDailyChallenge,
+    isPractice,
+    soundTheme: settings.soundTheme,
+    instrument: settings.instrument,
+    grooveIdx,
+  };
+
   gameStore.set({
     screen: 'game',
     difficulty,
@@ -231,6 +269,8 @@ async function beginRound(
     lastGrooveIdx: grooveIdx,
     dailyImprovedOnRetry: false,
     dailyPreviousScore: null,
+    listenAgainAvailable,
+    listenAgainUsed: false,
     phase: { kind: 'countdown', startedAt: countdownStart, endsAt: countdownEnd, beats: COUNTDOWN_BEATS },
   });
 
@@ -244,22 +284,76 @@ async function beginRound(
     }, msUntilListening),
   );
 
-  const msUntilEcho = Math.max(0, (echoStart - ctx.currentTime) * 1000);
-  pendingTimers.push(
-    window.setTimeout(() => {
-      enterEchoPhase(
-        ctx,
-        pattern,
-        difficulty,
-        isDailyChallenge,
-        isPractice,
-        echoStart,
-        settings.soundTheme,
-        settings.instrument,
-        grooveIdx,
-      );
-    }, msUntilEcho),
+  scheduleEchoTransition(echoStart);
+}
+
+/**
+ * (Re-)schedule the listening → echoing transition. Called once from
+ * beginRound and again from listenAgain (after queuing a second pattern
+ * playback). Keeping it in one place means the echo timer is always
+ * consistent with the most recent pattern-end time.
+ */
+function scheduleEchoTransition(echoStart: number): void {
+  if (!currentRound) return;
+  if (echoTimer !== null) {
+    window.clearTimeout(echoTimer);
+    echoTimer = null;
+  }
+  const round = currentRound;
+  const msUntilEcho = Math.max(0, (echoStart - round.ctx.currentTime) * 1000);
+  echoTimer = window.setTimeout(() => {
+    echoTimer = null;
+    enterEchoPhase(
+      round.ctx,
+      round.pattern,
+      round.difficulty,
+      round.isDailyChallenge,
+      round.isPractice,
+      echoStart,
+      round.soundTheme,
+      round.instrument,
+      round.grooveIdx,
+    );
+  }, msUntilEcho);
+}
+
+/**
+ * Replay the pattern once more before the echo phase starts. The second
+ * playback is queued back-to-back with the original (or as close to it as
+ * possible if the player tapped late) and the echo transition is pushed
+ * out to match. No-op if the player already used their one re-listen, if
+ * the listen phase has ended, or if the round didn't qualify in the
+ * first place (easy / daily / replay / practice).
+ */
+export function listenAgain(): void {
+  const state = gameStore.get();
+  if (!state.listenAgainAvailable || state.listenAgainUsed) return;
+  if (state.phase.kind !== 'listening') return;
+  if (!currentRound) return;
+
+  const round = currentRound;
+  const originalEnd = state.phase.patternEndTime;
+  // Start the replay either at the original pattern's natural end (if
+  // we're still inside the listening playback) or as soon as we can if the
+  // gap before echo has already started. A tiny lead-in keeps the first
+  // note of the replay from getting cut off.
+  const replayStart = Math.max(originalEnd, round.ctx.currentTime + 0.05);
+  const replayEnd = schedulePattern(
+    round.ctx,
+    round.pattern,
+    replayStart,
+    round.soundTheme,
+    round.instrument,
+    round.grooveIdx,
   );
+  const newEchoStart = replayEnd + ECHO_GAP_SEC;
+  scheduleEchoTransition(newEchoStart);
+
+  gameStore.set({
+    ...state,
+    listenAgainUsed: true,
+    phase: { ...state.phase, patternEndTime: replayEnd },
+  });
 }
 
 function enterEchoPhase(
