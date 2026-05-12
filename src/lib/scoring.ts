@@ -137,6 +137,10 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
 
   const tapResults: TapResult[] = [];
   let rhythmErrorSum = 0;
+  // The forced first tap (always at time 0, residual always 0) is excluded
+  // from the rhythm average so it doesn't inflate the score for free. We
+  // track the actual denominator separately.
+  let rhythmContribCount = 0;
   let successCount = 0;
 
   for (let i = 0; i < matchedCount; i++) {
@@ -146,7 +150,10 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
     const rawErrorMs = (taps[i] - expRaw) * 1000;
     const { judgment } = judge(errorMs);
     if (judgment !== 'miss') successCount++;
-    rhythmErrorSum += Math.min(Math.abs(errorMs), SCORE_PENALTY_CAP_MS);
+    if (i > 0) {
+      rhythmErrorSum += Math.min(Math.abs(errorMs), SCORE_PENALTY_CAP_MS);
+      rhythmContribCount++;
+    }
     tapResults.push({
       expectedIdx: i,
       tapTime: taps[i],
@@ -158,9 +165,12 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
 
   // Tail expected onsets the player didn't reach are misses with no tap.
   // They feed the same penalty into rhythm as a matched miss, so stopping
-  // early hurts rhythm proportionally.
+  // early hurts rhythm proportionally. (i is always ≥ 1 here if any taps
+  // were made; if matchedCount = 0, the first iteration's i = 0 starts a
+  // round where no first tap was forced, so it correctly counts.)
   for (let i = matchedCount; i < expectedCount; i++) {
     rhythmErrorSum += SCORE_PENALTY_CAP_MS;
+    rhythmContribCount++;
     tapResults.push({
       expectedIdx: i,
       tapTime: null,
@@ -179,12 +189,16 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
   };
   for (const r of tapResults) counts[r.judgment]++;
 
-  // Rhythm averages across ALL expected onsets — including misses — so a
-  // miss already shows up here. Hit rate is therefore not a separate
-  // subscore, only the Miss tally and the red dots on the You row.
-  const meanAbsErrorMs = expectedCount > 0 ? rhythmErrorSum / expectedCount : 0;
-  const rhythmScore = expectedCount === 0
-    ? 0
+  // Rhythm averages residuals over every meaningful onset — misses
+  // included, but excluding the forced first tap which is always at time
+  // 0 (residual 0) and would otherwise dilute the average. When there's
+  // nothing past the first tap to measure (single-onset pattern that the
+  // player completed) the round is trivially perfect.
+  const meanAbsErrorMs = rhythmContribCount > 0
+    ? rhythmErrorSum / rhythmContribCount
+    : 0;
+  const rhythmScore = rhythmContribCount === 0
+    ? (matchedCount === 0 ? 0 : 100)
     : Math.max(0, Math.round(100 - meanAbsErrorMs * SCORE_COEFFICIENT));
 
   const tempoFactor = matchedCount >= 2 ? slope : 1;

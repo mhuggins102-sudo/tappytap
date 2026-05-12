@@ -97,14 +97,14 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 }
 
 {
-  // Stopped early: only 2 of 5 taps. The remaining 3 expected onsets are
-  // misses and contribute the miss-penalty to rhythm.
+  // Stopped early: only 2 of 5 taps. Forced first tap excluded from rhythm;
+  // remaining contributions are 1 matched-perfect (0 ms, i=1) and 3 tail
+  // misses (300 ms each). mean = 900/4 = 225 → rhythm = 100 − 75 = 25.
   const r = scoreRound(expected5, [0, 0.5]);
   assert(r.judgmentCounts.miss === 3, `stopped early → 3 misses`);
   assert(r.judgmentCounts.perfect === 2, `stopped early → 2 perfect`);
   assert(r.accuracyPct === 40, `stopped early → 40% hit (got ${r.accuracyPct})`);
-  // mean = (0+0+120+120+120)/5 = 72; rhythm = 100 - 60 = 40
-  assert(r.rhythmScore === 40, `stopped early → rhythm 40 (got ${r.rhythmScore})`);
+  assert(r.rhythmScore === 25, `stopped early → rhythm 25 (got ${r.rhythmScore})`);
 }
 
 {
