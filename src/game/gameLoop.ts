@@ -11,7 +11,7 @@ import { generatePattern } from '../patterns/generator';
 import { dailyDifficultyFor, generateDailyPattern, todayUtcDateString } from '../patterns/daily';
 import type { Difficulty, Judgment, Pattern } from '../patterns/types';
 import { rngFromRandom } from '../lib/rng';
-import { matchTapLive, scoreRound, shareString } from '../lib/scoring';
+import { matchTapLiveAdaptive, scoreRound, shareString } from '../lib/scoring';
 import {
   loadSettings,
   recordRound,
@@ -512,8 +512,12 @@ function enterEchoPhase(
     }
 
     const rel = audioTime - phase.echoStartTime;
-    const tapIdx = currentTaps.length;
-    const match = matchTapLive(rel, pattern.onsets[tapIdx], tapIdx);
+    // Tempo-correct each in-progress tap against the slope fit to the
+    // taps so far, so the live color tracks what the final score will
+    // show — a player who's consistently fast/slow gets green flashes
+    // instead of red ones, just like they'll get on the result screen.
+    const tapHistory = [...currentTaps, rel];
+    const match = matchTapLiveAdaptive(rel, pattern.onsets, tapHistory);
     currentTaps.push(rel);
     currentJudgments.push(match.judgment);
     gameStore.set({
