@@ -40,6 +40,12 @@ export interface GameState {
   // The groove index used for the most recently started round. Re-used when
   // the player taps "Try again" so they hear the same beat.
   lastGrooveIdx: number | null;
+  // Transient: set when the just-finished daily round produced a new
+  // personal best for that date. Reset when starting any new round or
+  // navigating away from the score screen so it never surfaces stale.
+  dailyImprovedOnRetry: boolean;
+  /** The previous best for the date, if dailyImprovedOnRetry is true. */
+  dailyPreviousScore: number | null;
 }
 
 export const INITIAL_STATE: GameState = {
@@ -53,4 +59,6 @@ export const INITIAL_STATE: GameState = {
   lastResult: null,
   lastPattern: null,
   lastGrooveIdx: null,
+  dailyImprovedOnRetry: false,
+  dailyPreviousScore: null,
 };

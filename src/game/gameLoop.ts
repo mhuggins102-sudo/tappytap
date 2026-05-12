@@ -12,7 +12,13 @@ import { generateDailyPattern, todayUtcDateString } from '../patterns/daily';
 import type { Difficulty, Judgment, Pattern } from '../patterns/types';
 import { rngFromRandom } from '../lib/rng';
 import { matchTapLive, scoreRound, shareString } from '../lib/scoring';
-import { loadSettings, recordRound, saveDailyEntry, loadDailyEntry } from '../lib/storage';
+import {
+  loadSettings,
+  recordRound,
+  saveDailyEntry,
+  loadDailyEntry,
+  MAX_DAILY_ATTEMPTS,
+} from '../lib/storage';
 import { startCapture } from './inputCapture';
 import { Store } from './store';
 import { INITIAL_STATE, type GameState } from './stateMachine';
@@ -58,7 +64,13 @@ function teardownCapture(): void {
 export function goToPicker(): void {
   clearTimers();
   teardownCapture();
-  gameStore.set({ ...gameStore.get(), screen: 'picker', phase: { kind: 'idle' } });
+  gameStore.set({
+    ...gameStore.get(),
+    screen: 'picker',
+    phase: { kind: 'idle' },
+    dailyImprovedOnRetry: false,
+    dailyPreviousScore: null,
+  });
 }
 
 export function goToDailyScreen(dateStr?: string): void {
@@ -71,6 +83,8 @@ export function goToDailyScreen(dateStr?: string): void {
     dailyDateStr: date,
     isDailyChallenge: true,
     phase: { kind: 'idle' },
+    dailyImprovedOnRetry: false,
+    dailyPreviousScore: null,
   });
 }
 
@@ -83,6 +97,8 @@ export function goToArchiveScreen(): void {
     isDailyChallenge: false,
     dailyDateStr: null,
     phase: { kind: 'idle' },
+    dailyImprovedOnRetry: false,
+    dailyPreviousScore: null,
   });
 }
 
@@ -104,21 +120,21 @@ export async function startRound(difficulty: Difficulty): Promise<void> {
  * recording them to the player's lifetime stats — only the first attempt
  * at a beat counts toward best score / averages.
  *
- * Today's daily challenge is one-shot and cannot be retried. Archived
- * daily challenges can be retried freely (the storage layer keeps the
- * best score for that date).
+ * Daily challenges (today and archived) allow a single retry, so a daily
+ * round refuses to start when the entry has already used both attempts.
  */
 export async function tryAgain(): Promise<void> {
   const state = gameStore.get();
   if (!state.lastPattern) return;
-  const isTodayDaily =
-    state.isDailyChallenge && state.dailyDateStr === todayUtcDateString();
-  if (isTodayDaily) return;
+  if (state.isDailyChallenge && state.dailyDateStr) {
+    const existing = loadDailyEntry(state.dailyDateStr);
+    if (existing && existing.attempts >= MAX_DAILY_ATTEMPTS) return;
+  }
   kickAudioSync();
   const eng = await ensureAudioEngine();
-  // Archived daily: re-run the daily start path so the day's date is
-  // attached to the resulting save. Lifetime-stat rounds use the regular
-  // replay flow with isReplay=true.
+  // Daily retry: re-run the daily start path so the day's date is attached
+  // to the resulting save. Lifetime-stat rounds use the regular replay flow
+  // with isReplay=true (excluded from best-score/average updates).
   if (state.isDailyChallenge && state.dailyDateStr) {
     await beginRound(
       eng.ctx,
@@ -144,12 +160,10 @@ export async function tryAgain(): Promise<void> {
 export async function startDailyRound(forDate?: string): Promise<void> {
   kickAudioSync();
   const dateStr = forDate ?? todayUtcDateString();
-  const isToday = dateStr === todayUtcDateString();
   const existing = loadDailyEntry(dateStr);
-  // Today is one-shot: if already played, surface the saved result. Archived
-  // days are replayable (best score wins on save), so skip the early return
-  // and start a fresh round even when an entry already exists.
-  if (existing && isToday) {
+  // Two-attempt cap applies uniformly to today and to archived days. When
+  // attempts are exhausted, surface the saved result instead of replaying.
+  if (existing && existing.attempts >= MAX_DAILY_ATTEMPTS) {
     gameStore.set({
       ...gameStore.get(),
       screen: 'score',
@@ -159,6 +173,8 @@ export async function startDailyRound(forDate?: string): Promise<void> {
       isPractice: false,
       isReplay: false,
       lastResult: existing.result,
+      dailyImprovedOnRetry: false,
+      dailyPreviousScore: null,
       phase: { kind: 'idle' },
     });
     return;
@@ -213,6 +229,8 @@ async function beginRound(
     lastResult: gameStore.get().lastResult,
     lastPattern: pattern,
     lastGrooveIdx: grooveIdx,
+    dailyImprovedOnRetry: false,
+    dailyPreviousScore: null,
     phase: { kind: 'countdown', startedAt: countdownStart, endsAt: countdownEnd, beats: COUNTDOWN_BEATS },
   });
 
@@ -375,13 +393,21 @@ function finalizeRound(
   const state = gameStore.get();
   const isReplay = state.isReplay;
 
+  let dailyImprovedOnRetry = false;
+  let dailyPreviousScore: number | null = null;
   // Replays of a previous beat don't update lifetime stats — only the first
   // attempt counts. Daily-challenge saves use the round's stored date so
   // archived days update the history map for that date, not today.
   if (!isPractice && !isReplay) {
     if (isDailyChallenge) {
       const dateStr = state.dailyDateStr ?? todayUtcDateString();
-      saveDailyEntry({ date: dateStr, result, shareString: shareString(dateStr, result) });
+      const save = saveDailyEntry({
+        date: dateStr,
+        result,
+        shareString: shareString(dateStr, result),
+      });
+      dailyImprovedOnRetry = save.wasImprovement;
+      dailyPreviousScore = save.previousScore;
     } else {
       recordRound(difficulty, result);
     }
@@ -395,6 +421,8 @@ function finalizeRound(
     isPractice,
     lastResult: result,
     lastPattern: pattern,
+    dailyImprovedOnRetry,
+    dailyPreviousScore,
     phase: { kind: 'scoring', pattern, result },
   });
 }

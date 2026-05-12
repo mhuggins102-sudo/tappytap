@@ -33,6 +33,8 @@ export interface DailyEntry {
   date: string;
   result: RoundResult;
   shareString: string;
+  /** How many attempts the player has used for this date. Capped at 2. */
+  attempts: number;
   /** Rank info from the server (populated after a successful submit). */
   rank?: { position: number; total: number; distribution: number[] } | null;
 }
@@ -111,15 +113,27 @@ export function clearHighScores(): void {
   localStorage.removeItem(HIGHSCORES_KEY);
 }
 
+/** Backfill `attempts` for entries saved before the field existed. */
+function migrateDailyEntry(e: DailyEntry): DailyEntry {
+  return { ...e, attempts: typeof e.attempts === 'number' ? e.attempts : 1 };
+}
+
 export function loadDailyHistory(): DailyHistory {
   const parsed = safeParse<DailyHistory>(localStorage.getItem(DAILY_HISTORY_KEY));
-  if (parsed && parsed.v === VERSION && parsed.entries) return parsed;
+  if (parsed && parsed.v === VERSION && parsed.entries) {
+    const entries: Record<string, DailyEntry> = {};
+    for (const [k, v] of Object.entries(parsed.entries)) entries[k] = migrateDailyEntry(v);
+    return { v: VERSION, entries };
+  }
   // One-time migration from the legacy single-entry key: bring the old
   // entry forward into the history map so a returning player doesn't
   // lose their last result, then drop the old key.
   const legacy = safeParse<DailyEntry>(localStorage.getItem(DAILY_KEY));
   if (legacy && legacy.v === VERSION && legacy.date) {
-    const history: DailyHistory = { v: VERSION, entries: { [legacy.date]: legacy } };
+    const history: DailyHistory = {
+      v: VERSION,
+      entries: { [legacy.date]: migrateDailyEntry(legacy) },
+    };
     localStorage.setItem(DAILY_HISTORY_KEY, JSON.stringify(history));
     localStorage.removeItem(DAILY_KEY);
     return history;
@@ -127,22 +141,37 @@ export function loadDailyHistory(): DailyHistory {
   return { v: VERSION, entries: {} };
 }
 
+export const MAX_DAILY_ATTEMPTS = 2;
+
 export function loadDailyEntry(dateStr: string): DailyEntry | null {
   return loadDailyHistory().entries[dateStr] ?? null;
 }
 
-export function saveDailyEntry(entry: Omit<DailyEntry, 'v'>): DailyEntry {
+/**
+ * Save the result for a date with best-score-wins semantics. The entry's
+ * attempt count is always advanced (capped at MAX_DAILY_ATTEMPTS) so the
+ * "you've used your retries" check in the game loop sees the new total
+ * even when the new score was worse than the existing one. Returns the
+ * stored entry plus the previous score (if any) so the caller can show
+ * an "improved!" indicator.
+ */
+export function saveDailyEntry(
+  entry: Omit<DailyEntry, 'v' | 'attempts'>,
+): { entry: DailyEntry; previousScore: number | null; wasImprovement: boolean } {
   const history = loadDailyHistory();
   const existing = history.entries[entry.date];
-  // Best-score-wins: a worse replay of an archived day is a no-op so the
-  // ranking record reflects the player's best performance for that day.
-  if (existing && existing.result.totalScore >= entry.result.totalScore) {
-    return existing;
-  }
-  const full: DailyEntry = { v: VERSION, ...entry };
-  history.entries[entry.date] = full;
+  const previousScore = existing?.result.totalScore ?? null;
+  const attempts = Math.min(MAX_DAILY_ATTEMPTS, (existing?.attempts ?? 0) + 1);
+  const keepExisting =
+    existing && existing.result.totalScore >= entry.result.totalScore;
+  const stored: DailyEntry = keepExisting
+    ? { ...existing, attempts }
+    : { v: VERSION, ...entry, attempts, rank: existing?.rank };
+  history.entries[entry.date] = stored;
   localStorage.setItem(DAILY_HISTORY_KEY, JSON.stringify(history));
-  return full;
+  const wasImprovement =
+    previousScore !== null && entry.result.totalScore > previousScore;
+  return { entry: stored, previousScore, wasImprovement };
 }
 
 export function updateDailyEntryRank(dateStr: string, rank: DailyEntry['rank']): void {

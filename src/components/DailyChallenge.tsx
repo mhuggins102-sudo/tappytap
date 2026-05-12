@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { startDailyRound, goToPicker, goToArchiveScreen } from '../game/gameLoop';
-import { loadDailyEntry, type DailyEntry } from '../lib/storage';
+import { loadDailyEntry, MAX_DAILY_ATTEMPTS, type DailyEntry } from '../lib/storage';
 import { todayUtcDateString } from '../patterns/daily';
 import type { GameState } from '../game/stateMachine';
 import { DailyRankBox } from './DailyRankBox';
@@ -17,6 +17,7 @@ export function DailyChallenge({ state }: Props) {
   const isToday = dateStr === today;
 
   const [entry, setEntry] = useState<DailyEntry | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setEntry(loadDailyEntry(dateStr));
@@ -26,12 +27,15 @@ export function DailyChallenge({ state }: Props) {
     if (!entry) return;
     try {
       await navigator.clipboard.writeText(entry.shareString);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
     } catch {
       // ignore
     }
   };
 
   const backToList = () => (isToday ? goToPicker() : goToArchiveScreen());
+  const canRetry = entry !== null && entry.attempts < MAX_DAILY_ATTEMPTS;
 
   return (
     <div className="screen screen--daily">
@@ -40,9 +44,9 @@ export function DailyChallenge({ state }: Props) {
       {entry ? (
         <>
           <p className="daily-note">
-            {isToday
-              ? "You've already played today. Come back tomorrow!"
-              : 'Your best for this day so far.'}
+            {canRetry
+              ? 'Your best for this day so far — one more attempt available.'
+              : "You've used both attempts. Come back tomorrow for a new pattern."}
           </p>
           <div className="score-headline">
             <div className="score-headline__number">{entry.result.totalScore}</div>
@@ -59,27 +63,29 @@ export function DailyChallenge({ state }: Props) {
             </div>
           </div>
           <DailyRankBox dateStr={dateStr} />
-          <div className="share-box">
-            <code className="share-box__text">{entry.shareString}</code>
-            <button className="btn btn--small" type="button" onClick={onCopy}>
-              Copy
+          <div className="score-actions">
+            {canRetry && (
+              <button
+                className="btn btn--primary"
+                type="button"
+                onClick={() => void startDailyRound(dateStr)}
+              >
+                Try again
+              </button>
+            )}
+            <button className="btn" type="button" onClick={backToList}>
+              {isToday ? 'Back' : 'Back to archive'}
+            </button>
+            <button className="btn" type="button" onClick={onCopy}>
+              {copied ? 'Copied!' : 'Copy'}
             </button>
           </div>
-          {!isToday && (
-            <button
-              className="btn btn--primary"
-              type="button"
-              onClick={() => void startDailyRound(dateStr)}
-            >
-              Try again
-            </button>
-          )}
         </>
       ) : (
         <>
           <p className="daily-note">
             {isToday
-              ? 'One pattern. One attempt. Same for everyone.'
+              ? 'One pattern. Two attempts. Same for everyone.'
               : 'You missed this day — give it a shot now.'}
           </p>
           <button
@@ -89,11 +95,11 @@ export function DailyChallenge({ state }: Props) {
           >
             {isToday ? "Play today's pattern" : 'Play this challenge'}
           </button>
+          <button className="btn" type="button" onClick={backToList}>
+            {isToday ? 'Back' : 'Back to archive'}
+          </button>
         </>
       )}
-      <button className="btn" type="button" onClick={backToList}>
-        {isToday ? 'Back' : 'Back to archive'}
-      </button>
     </div>
   );
 }
