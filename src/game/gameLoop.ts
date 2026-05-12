@@ -1,4 +1,4 @@
-import { ensureAudioEngine, kickAudioSync } from '../audio/audioContext';
+import { ensureAudioEngine, kickAudioSync, resetOutputNode } from '../audio/audioContext';
 import {
   pickGrooveIndex,
   playTapFeedback,
@@ -71,6 +71,15 @@ function clearTimers(): void {
   if (echoTimer !== null) {
     window.clearTimeout(echoTimer);
     echoTimer = null;
+  }
+  // Cut any audio that was scheduled for the round we're tearing down so
+  // it doesn't continue playing after the player navigates away.
+  if (currentRound) {
+    try {
+      resetOutputNode(currentRound.ctx);
+    } catch {
+      // ignore — best-effort
+    }
   }
   currentRound = null;
 }
@@ -318,18 +327,16 @@ function scheduleEchoTransition(echoStart: number): void {
 }
 
 /**
- * Replay the pattern once more, fronted by a full count-in just like the
- * round's original countdown. Available while the player is in the
- * listening phase OR in the echo phase before their first tap. One use
- * per round, gated by `listenAgainAvailable` (medium/hard, first scoring
- * attempt only — daily / replay / practice rounds don't qualify).
+ * Restart the listen sequence — count-in, pattern, echo phase — exactly
+ * like the round's original opening, but cut the previous audio out
+ * immediately. Available while the player is in the listening phase OR
+ * in the echo phase before their first tap. One use per round, gated by
+ * `listenAgainAvailable` (medium/hard, first scoring attempt only —
+ * daily / replay / practice rounds don't qualify).
  *
- * Web Audio events that are already scheduled can't be cancelled
- * cleanly, so if a press lands while the original pattern is still
- * audible the new countdown is timed to start at the original pattern's
- * natural end. Audibly: pattern → brief silence → countdown → replay.
- * Visually: phase stays 'listening' until the new countdown actually
- * starts (no UI jump while the previous audio finishes).
+ * `resetOutputNode` cuts any audio scheduled through the round's master
+ * gain, so the user gets an instant restart instead of waiting for the
+ * tail of the original playback to finish.
  */
 export function listenAgain(): void {
   const state = gameStore.get();
@@ -342,11 +349,9 @@ export function listenAgain(): void {
 
   const round = currentRound;
   const ctx = round.ctx;
-  const now = ctx.currentTime;
 
-  // Tear down any pending state transitions, watchdogs, and the tap
-  // capture set up by the original round path. The Web Audio events that
-  // already kicked off will continue playing on their own.
+  // Tear down all state transitions, watchdogs, and the tap capture set
+  // up by the original round path.
   for (const t of pendingTimers) window.clearTimeout(t);
   pendingTimers = [];
   if (echoTimer !== null) {
@@ -364,15 +369,12 @@ export function listenAgain(): void {
   teardownCapture();
   currentTaps = [];
   currentJudgments = [];
+  // Silence the original playback immediately. Subsequent scheduled
+  // sounds route through the freshly-installed master and play normally.
+  resetOutputNode(ctx);
 
-  // Find when to start the new countdown. If the original playback is
-  // still audible (pressed mid-listen), defer until just after it ends so
-  // the count beeps don't stack on top of pattern notes.
-  const stillPlaying = inListening && phase.patternEndTime > now;
   const leadIn = 0.15;
-  const countdownStart = stillPlaying
-    ? phase.patternEndTime + 0.05
-    : now + leadIn;
+  const countdownStart = ctx.currentTime + leadIn;
   const countdownEnd = scheduleCountdown(
     ctx,
     countdownStart,
@@ -390,25 +392,16 @@ export function listenAgain(): void {
   );
   const echoStart = patternEnd + ECHO_GAP_SEC;
 
-  const countdownPhase = {
-    kind: 'countdown' as const,
-    startedAt: countdownStart,
-    endsAt: countdownEnd,
-    beats: COUNTDOWN_BEATS,
-  };
-  if (stillPlaying) {
-    // Hide the button right away; defer the visible countdown switch
-    // until the original pattern audibly finishes.
-    gameStore.set({ ...state, listenAgainUsed: true });
-    const msUntilCountdownVisible = Math.max(0, (countdownStart - now) * 1000);
-    pendingTimers.push(
-      window.setTimeout(() => {
-        gameStore.set({ ...gameStore.get(), phase: countdownPhase });
-      }, msUntilCountdownVisible),
-    );
-  } else {
-    gameStore.set({ ...state, listenAgainUsed: true, phase: countdownPhase });
-  }
+  gameStore.set({
+    ...state,
+    listenAgainUsed: true,
+    phase: {
+      kind: 'countdown',
+      startedAt: countdownStart,
+      endsAt: countdownEnd,
+      beats: COUNTDOWN_BEATS,
+    },
+  });
 
   // Transition into the new listening phase when the count-in finishes.
   const msUntilListening = Math.max(0, (patternStart - ctx.currentTime) * 1000);
