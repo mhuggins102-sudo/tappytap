@@ -5,7 +5,7 @@
 # the D1 binding for the deployed Functions has to live here, not just in
 # the dashboard.
 #
-# To find your database UUID: dash.cloudflare.com → Workers & Pages → D1 →
+# To find your database UUID: <dash.cloudflare.com> → Workers & Pages → D1 →
 # tappytap → look for the "Database ID" line on the overview/Settings tab
 # (NOT the UUID in the URL bar — that's your account ID).
 name = "tappytap"
