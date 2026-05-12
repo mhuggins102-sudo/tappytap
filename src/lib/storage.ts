@@ -1,7 +1,9 @@
 import type { Difficulty, RoundResult } from '../patterns/types';
 
 const HIGHSCORES_KEY = 'tappytap.highscores';
-const DAILY_KEY = 'tappytap.daily';
+const DAILY_KEY = 'tappytap.daily'; // legacy: single-day entry. Migrated to DAILY_HISTORY_KEY on first read.
+const DAILY_HISTORY_KEY = 'tappytap.dailyHistory';
+const PLAYER_ID_KEY = 'tappytap.playerId';
 const SETTINGS_KEY = 'tappytap.settings';
 const VERSION = 2;
 // Settings has its own version so we can ship new defaults (and add fields
@@ -31,6 +33,13 @@ export interface DailyEntry {
   date: string;
   result: RoundResult;
   shareString: string;
+  /** Rank info from the server (populated after a successful submit). */
+  rank?: { position: number; total: number; distribution: number[] } | null;
+}
+
+export interface DailyHistory {
+  v: number;
+  entries: Record<string, DailyEntry>;
 }
 
 const EMPTY_HIGHSCORES: HighScores = { v: VERSION, easy: null, medium: null, hard: null };
@@ -102,20 +111,72 @@ export function clearHighScores(): void {
   localStorage.removeItem(HIGHSCORES_KEY);
 }
 
-export function loadDailyEntry(todayDateStr: string): DailyEntry | null {
-  const parsed = safeParse<DailyEntry>(localStorage.getItem(DAILY_KEY));
-  if (!parsed || parsed.v !== VERSION) return null;
-  if (parsed.date !== todayDateStr) return null;
-  return parsed;
+export function loadDailyHistory(): DailyHistory {
+  const parsed = safeParse<DailyHistory>(localStorage.getItem(DAILY_HISTORY_KEY));
+  if (parsed && parsed.v === VERSION && parsed.entries) return parsed;
+  // One-time migration from the legacy single-entry key: bring the old
+  // entry forward into the history map so a returning player doesn't
+  // lose their last result, then drop the old key.
+  const legacy = safeParse<DailyEntry>(localStorage.getItem(DAILY_KEY));
+  if (legacy && legacy.v === VERSION && legacy.date) {
+    const history: DailyHistory = { v: VERSION, entries: { [legacy.date]: legacy } };
+    localStorage.setItem(DAILY_HISTORY_KEY, JSON.stringify(history));
+    localStorage.removeItem(DAILY_KEY);
+    return history;
+  }
+  return { v: VERSION, entries: {} };
 }
 
-export function saveDailyEntry(entry: Omit<DailyEntry, 'v'>): void {
+export function loadDailyEntry(dateStr: string): DailyEntry | null {
+  return loadDailyHistory().entries[dateStr] ?? null;
+}
+
+export function saveDailyEntry(entry: Omit<DailyEntry, 'v'>): DailyEntry {
+  const history = loadDailyHistory();
+  const existing = history.entries[entry.date];
+  // Best-score-wins: a worse replay of an archived day is a no-op so the
+  // ranking record reflects the player's best performance for that day.
+  if (existing && existing.result.totalScore >= entry.result.totalScore) {
+    return existing;
+  }
   const full: DailyEntry = { v: VERSION, ...entry };
-  localStorage.setItem(DAILY_KEY, JSON.stringify(full));
+  history.entries[entry.date] = full;
+  localStorage.setItem(DAILY_HISTORY_KEY, JSON.stringify(history));
+  return full;
+}
+
+export function updateDailyEntryRank(dateStr: string, rank: DailyEntry['rank']): void {
+  const history = loadDailyHistory();
+  const existing = history.entries[dateStr];
+  if (!existing) return;
+  history.entries[dateStr] = { ...existing, rank };
+  localStorage.setItem(DAILY_HISTORY_KEY, JSON.stringify(history));
+}
+
+/**
+ * Stable anonymous identifier for ranking submissions. Generated on first
+ * use and persisted in localStorage. Never displayed to the player.
+ */
+export function loadPlayerId(): string {
+  const existing = localStorage.getItem(PLAYER_ID_KEY);
+  if (existing) return existing;
+  const fresh = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `p-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
+  localStorage.setItem(PLAYER_ID_KEY, fresh);
+  return fresh;
 }
 
 export type SoundTheme = 'tones' | 'groove';
-export type Instrument = 'drums' | 'marimba' | 'bass' | 'synth' | 'piano';
+export type Instrument =
+  | 'drums'
+  | 'marimba'
+  | 'bass'
+  | 'synth'
+  | 'piano'
+  | 'kazoo'
+  | 'bikeHorn'
+  | 'whoopee';
 
 export interface Settings {
   v: number;

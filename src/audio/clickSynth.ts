@@ -369,6 +369,75 @@ export function schedulePiano(ctx: AudioContext, when: number, freq: number): vo
   mix.connect(ctx.destination);
 }
 
+// Kazoo: nasal pitched buzz. Sawtooth through a tight bandpass filter
+// near the formant region of a human "ooh" gives the characteristic
+// buzzy-vocal timbre.
+export function scheduleKazoo(ctx: AudioContext, when: number, freq: number): void {
+  const start = Math.max(when, ctx.currentTime);
+  const osc = ctx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(freq, start);
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = Math.max(700, freq * 2.4);
+  bp.Q.value = 6;
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, start);
+  env.gain.exponentialRampToValueAtTime(0.32, start + 0.012);
+  env.gain.exponentialRampToValueAtTime(0.18, start + 0.18);
+  env.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
+  osc.connect(bp).connect(env).connect(ctx.destination);
+  osc.start(start);
+  osc.stop(start + 0.38);
+}
+
+// Bicycle horn: short bulb-honk. A pair of square oscillators a fifth
+// apart, with a tiny pitch slide and a slightly soft attack — sounds
+// like a hand-squeezed rubber-bulb horn.
+export function scheduleBikeHorn(ctx: AudioContext, when: number, freq: number): void {
+  const start = Math.max(when, ctx.currentTime);
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 2000;
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, start);
+  env.gain.exponentialRampToValueAtTime(0.34, start + 0.02);
+  env.gain.linearRampToValueAtTime(0.3, start + 0.16);
+  env.gain.exponentialRampToValueAtTime(0.0001, start + 0.28);
+  lp.connect(env).connect(ctx.destination);
+  for (const ratio of [1, 1.5]) {
+    const osc = ctx.createOscillator();
+    osc.type = 'square';
+    const f0 = freq * ratio;
+    osc.frequency.setValueAtTime(f0 * 1.02, start);
+    osc.frequency.exponentialRampToValueAtTime(f0, start + 0.06);
+    osc.connect(lp);
+    osc.start(start);
+    osc.stop(start + 0.3);
+  }
+}
+
+// Whoopee cushion: nasal noise-burst with a falling pitch sweep on a
+// bandpass. Not pitched in a musical sense — every tap sounds the same.
+export function scheduleWhoopee(ctx: AudioContext, when: number): void {
+  const start = Math.max(when, ctx.currentTime);
+  const noise = ctx.createBufferSource();
+  noise.buffer = noiseBuffer(ctx, 0.35);
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.setValueAtTime(900, start);
+  bp.frequency.exponentialRampToValueAtTime(180, start + 0.3);
+  bp.Q.value = 4;
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, start);
+  env.gain.exponentialRampToValueAtTime(0.55, start + 0.015);
+  env.gain.linearRampToValueAtTime(0.35, start + 0.18);
+  env.gain.exponentialRampToValueAtTime(0.0001, start + 0.33);
+  noise.connect(bp).connect(env).connect(ctx.destination);
+  noise.start(start);
+  noise.stop(start + 0.36);
+}
+
 export function scheduleTriangle(ctx: AudioContext, when: number): void {
   const start = Math.max(when, ctx.currentTime);
   const osc = ctx.createOscillator();

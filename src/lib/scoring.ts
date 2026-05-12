@@ -310,5 +310,5 @@ export function shareString(dateStr: string, result: RoundResult): string {
     }
   };
   const seq = result.taps.map((t) => code(t.judgment)).join('');
-  return `TappyTap ${dateStr}: ${result.accuracyPct}% — ${seq}`;
+  return `TappyTap ${dateStr}: ${result.totalScore} (${result.rhythmScore}r/${result.tempoScore}t) — ${seq}`;
 }

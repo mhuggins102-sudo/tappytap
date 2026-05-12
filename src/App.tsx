@@ -4,6 +4,7 @@ import { DifficultyPicker } from './components/DifficultyPicker';
 import { GameScreen } from './components/GameScreen';
 import { ScoreScreen } from './components/ScoreScreen';
 import { DailyChallenge } from './components/DailyChallenge';
+import { DailyArchive } from './components/DailyArchive';
 
 export function App() {
   const state = useGameState();
@@ -15,7 +16,8 @@ export function App() {
         {state.screen === 'picker' && <DifficultyPicker />}
         {state.screen === 'game' && <GameScreen state={state} />}
         {state.screen === 'score' && <ScoreScreen state={state} />}
-        {state.screen === 'daily' && <DailyChallenge />}
+        {state.screen === 'daily' && <DailyChallenge state={state} />}
+        {state.screen === 'archive' && <DailyArchive />}
       </div>
       <footer className="footer">tappytap · a tiny rhythm game</footer>
     </div>

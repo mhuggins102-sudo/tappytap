@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { startRound, goToDailyScreen } from '../game/gameLoop';
+import { startRound, goToDailyScreen, goToArchiveScreen } from '../game/gameLoop';
 import {
   clearHighScores,
   loadHighScores,
@@ -15,6 +15,9 @@ const INSTRUMENTS: Array<{ id: Instrument; label: string }> = [
   { id: 'piano', label: 'Piano' },
   { id: 'synth', label: 'Synth lead' },
   { id: 'bass', label: 'Synth bass' },
+  { id: 'kazoo', label: 'Kazoo' },
+  { id: 'bikeHorn', label: 'Bicycle horn' },
+  { id: 'whoopee', label: 'Whoopee cushion' },
 ];
 import { loadDailyEntry } from '../lib/storage';
 import { todayUtcDateString } from '../patterns/daily';
@@ -118,11 +121,21 @@ export function DifficultyPicker() {
       <button
         className={`btn btn--daily ${dailyDone ? 'btn--done' : ''}`}
         type="button"
-        onClick={goToDailyScreen}
+        onClick={() => goToDailyScreen()}
         disabled={practiceMode}
         title={practiceMode ? 'Disable Practice Mode to play the daily' : undefined}
       >
         Daily challenge {dailyDone ? '✓' : ''}
+      </button>
+
+      <button
+        className="btn btn--secondary"
+        type="button"
+        onClick={goToArchiveScreen}
+        disabled={practiceMode}
+        title={practiceMode ? 'Disable Practice Mode to access archives' : undefined}
+      >
+        Past challenges
       </button>
 
       <div className="settings">

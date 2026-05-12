@@ -1,12 +1,14 @@
 import type { Pattern } from '../patterns/types';
 import {
   scheduleBeep,
+  scheduleBikeHorn,
   scheduleClap,
   scheduleClave,
   scheduleClick,
   scheduleCowbell,
   scheduleHat,
   scheduleHiTom,
+  scheduleKazoo,
   scheduleKick,
   scheduleMarimba,
   schedulePiano,
@@ -18,6 +20,7 @@ import {
   scheduleSynthLead,
   scheduleTom,
   scheduleTriangle,
+  scheduleWhoopee,
 } from './clickSynth';
 import type { Instrument, SoundTheme } from '../lib/storage';
 
@@ -86,9 +89,19 @@ const MARIMBA_FREQS = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5]; // C5..C6
 const SYNTH_FREQS = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25]; // C4..C5
 const PIANO_FREQS = [261.63, 329.63, 392.0, 523.25, 659.25, 783.99]; // C4 E4 G4 C5 E5 G5
 const BASS_FREQS = [65.41, 73.42, 82.41, 98.0, 110.0, 130.81]; // C2..C3
+// Kazoo lives in the mid-range "humming" register where the buzz reads
+// most clearly. Bicycle horn alternates between two-ish notes — a low
+// "ah" and a high "oo" — for that bulb-honk back-and-forth feel.
+const KAZOO_FREQS = [392.0, 440.0, 523.25, 587.33, 659.25, 783.99]; // G4..G5
+const BIKE_HORN_FREQS = [349.23, 523.25, 349.23, 523.25, 349.23, 523.25]; // F4 / C5 alternating
 
 function isDrumInstrument(instrument: Instrument): boolean {
   return instrument === 'drums';
+}
+
+// Whoopee has no musical scale — every "voice" plays the same noise burst.
+function isNoiseInstrument(instrument: Instrument): boolean {
+  return instrument === 'whoopee';
 }
 
 export function pickGrooveIndex(instrument: Instrument): number {
@@ -140,7 +153,7 @@ function scheduleDrum(ctx: AudioContext, when: number, drum: Drum): void {
 function scheduleMelodicVoice(
   ctx: AudioContext,
   when: number,
-  instrument: Exclude<Instrument, 'drums'>,
+  instrument: Exclude<Instrument, 'drums' | 'whoopee'>,
   voiceIdx: number,
 ): void {
   const scale =
@@ -150,7 +163,11 @@ function scheduleMelodicVoice(
         ? PIANO_FREQS
         : instrument === 'synth'
           ? SYNTH_FREQS
-          : MARIMBA_FREQS;
+          : instrument === 'kazoo'
+            ? KAZOO_FREQS
+            : instrument === 'bikeHorn'
+              ? BIKE_HORN_FREQS
+              : MARIMBA_FREQS;
   const freq = scale[voiceIdx % scale.length];
   switch (instrument) {
     case 'marimba':
@@ -164,6 +181,12 @@ function scheduleMelodicVoice(
       break;
     case 'piano':
       schedulePiano(ctx, when, freq);
+      break;
+    case 'kazoo':
+      scheduleKazoo(ctx, when, freq);
+      break;
+    case 'bikeHorn':
+      scheduleBikeHorn(ctx, when, freq);
       break;
   }
 }
@@ -180,9 +203,18 @@ function scheduleGrooveHit(
     scheduleDrum(ctx, when, groove[positionIdx % groove.length]);
     return;
   }
+  if (isNoiseInstrument(instrument)) {
+    scheduleWhoopee(ctx, when);
+    return;
+  }
   const groove = MELODIC_GROOVES[grooveIdx % MELODIC_GROOVES.length];
   const voiceIdx = groove[positionIdx % groove.length];
-  scheduleMelodicVoice(ctx, when, instrument as Exclude<Instrument, 'drums'>, voiceIdx);
+  scheduleMelodicVoice(
+    ctx,
+    when,
+    instrument as Exclude<Instrument, 'drums' | 'whoopee'>,
+    voiceIdx,
+  );
 }
 
 export function playTapFeedback(
