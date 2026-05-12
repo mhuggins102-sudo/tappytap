@@ -22,32 +22,32 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 }
 
 {
-  // 5% fast on 0.5 s IOIs: meanAbsMsDev = 25 ms → tempo = 100 − 25·5/6 ≈ 79.
-  // Total = avg(100, 79) = 89 or 90 (round).
+  // 5% fast on 0.5 s IOIs: meanAbsMsDev = 25 ms → tempo = 100 − 25·0.5 = 88.
+  // Total = avg(100, 88) = 94.
   const taps = expected5.map((t) => t * 0.95);
   const r = scoreRound(expected5, taps);
   assert(r.judgmentCounts.perfect === 5, '5% fast → 5 perfect after correction');
   assert(r.rhythmScore === 100, `5% fast → rhythm 100 (got ${r.rhythmScore})`);
-  assert(r.tempoScore === 79, `5% fast on 500 ms IOIs → tempo 79 (got ${r.tempoScore})`);
-  assert(r.totalScore === 90, `5% fast → total 90 (avg of 100 + 79, got ${r.totalScore})`);
+  assert(r.tempoScore >= 87 && r.tempoScore <= 88, `5% fast on 500 ms IOIs → tempo 87..88 (got ${r.tempoScore})`);
+  assert(r.totalScore >= 93 && r.totalScore <= 94, `5% fast → total 93..94 (got ${r.totalScore})`);
 }
 
 {
-  // 10% fast on 0.5 s IOIs: 50 ms deviation → tempo = 100 − 42 = 58.
+  // 10% fast on 0.5 s IOIs: 50 ms deviation → tempo = 100 − 25 = 75.
   const taps = expected5.map((t) => t * 0.9);
   const r = scoreRound(expected5, taps);
-  assert(r.tempoScore === 58, `10% fast on 500 ms IOIs → tempo 58 (got ${r.tempoScore})`);
-  assert(r.totalScore === 79, `10% fast → total 79 (got ${r.totalScore})`);
+  assert(r.tempoScore === 75, `10% fast on 500 ms IOIs → tempo 75 (got ${r.tempoScore})`);
+  assert(r.totalScore === 88, `10% fast → total 88 (got ${r.totalScore})`);
 }
 
 {
-  // 30% fast (1.3x speed) on 0.5 s IOIs: ~115 ms deviation → tempo ≈ 4.
-  // Tempo dimension fully blown; rhythm still 100 since timing is consistent.
+  // 30% fast (1.3x speed) on 0.5 s IOIs: ~115 ms deviation → tempo ≈ 43.
+  // Less punitive than the old 5/6 coefficient (was tempo ~4).
   const taps = expected5.map((t) => t / 1.3);
   const r = scoreRound(expected5, taps);
   assert(Math.abs(r.tempoFactor - 1 / 1.3) < 0.01, `1.3x → slope ≈ 0.77 (got ${r.tempoFactor.toFixed(3)})`);
   assert(r.rhythmScore === 100, `1.3x → rhythm 100`);
-  assert(r.tempoScore >= 2 && r.tempoScore <= 8, `1.3x on 500ms IOIs → tempo 2..8 (got ${r.tempoScore})`);
+  assert(r.tempoScore >= 40 && r.tempoScore <= 46, `1.3x on 500ms IOIs → tempo 40..46 (got ${r.tempoScore})`);
 }
 
 {
@@ -58,7 +58,10 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
   const r = scoreRound(exp, taps);
   assert(r.judgmentCounts.perfect === 16, 'double-time → 16 perfect');
   assert(r.rhythmScore === 100, 'double-time → rhythm 100');
-  assert(r.tempoScore === 0, 'double-time → tempo 0 (100% off)');
+  // 150 ms IOI dev on every pair × 0.5 coefficient → tempo = 25. Lower than
+  // anything below but no longer pinned to 0; the softened slope leaves
+  // room above zero for "substantially off but not infinitely so."
+  assert(r.tempoScore === 25, `double-time → tempo 25 (got ${r.tempoScore})`);
   assert(Math.abs(r.tempoFactor - 0.5) < 0.01, 'double-time → slope 0.5');
 }
 
