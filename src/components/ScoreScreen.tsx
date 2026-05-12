@@ -104,9 +104,9 @@ export function ScoreScreen({ state }: Props) {
 
 const SUBSCORE_INFO = {
   rhythm:
-    "How well-timed your taps were. After correcting for your overall tempo, this is the average timing error per note (misses count as max error). 100 means every tap was right on the beat.",
-    tempo:
-    "How steadily you kept time. The ms shown is your average beat-to-beat IOI deviation; each ms costs ½ a point (50 ms ≈ 75, 100 ms ≈ 50, 200 ms ≈ 0). Tempo uses half of Rhythm's slope to balance things out — Rhythm caps each tap's error at the 120 ms miss threshold, but tempo deviations can grow larger than that. Both consistent off-pace and mid-pattern wobble raise this number.",
+    "How precisely each tap was timed, relative to your own pace. If you played a little fast or slow but landed each tap right where it should be within that pace, this stays high. Sloppy timing and missed notes lower it.",
+  tempo:
+    "How close your pace was to the target, and how steady you held it. Playing too fast or too slow lowers this — so does rushing in one section and slowing in another, even if your average pace ended up right.",
 };
 
 function SubScores({ result }: { result: RoundResult }) {
