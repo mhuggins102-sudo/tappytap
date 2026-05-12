@@ -78,18 +78,16 @@ function fitSlopeMedianRatio(expected: number[], taps: number[], n: number): num
 }
 
 /**
- * Tempo statistics computed from local IOI ratios. The score uses RMS so a
- * single very-late or very-early IOI is felt; the signed mean drives the
- * direction label (fast / slow / mixed). RMS also feeds the displayed %
- * so the score and the % move together.
+ * Tempo statistics computed from local IOI ratios. Score and displayed %
+ * both come from meanAbsDev, so they stay in lockstep: each percent of
+ * average beat-to-beat IOI deviation costs 2 points (5% off ⇒ 90, 10% ⇒ 80).
  */
 function tempoStatistics(
   expected: number[],
   taps: number[],
   n: number,
-): { rms: number; meanAbsDev: number; meanDev: number } {
-  if (n < 2) return { rms: 0, meanAbsDev: 0, meanDev: 0 };
-  let sumSq = 0;
+): { meanAbsDev: number; meanDev: number } {
+  if (n < 2) return { meanAbsDev: 0, meanDev: 0 };
   let sumAbs = 0;
   let sumSigned = 0;
   let count = 0;
@@ -98,14 +96,12 @@ function tempoStatistics(
     if (expIoi <= 1e-6) continue;
     const tapIoi = taps[i + 1] - taps[i];
     const dev = tapIoi / expIoi - 1;
-    sumSq += dev * dev;
     sumAbs += Math.abs(dev);
     sumSigned += dev;
     count++;
   }
-  if (count === 0) return { rms: 0, meanAbsDev: 0, meanDev: 0 };
+  if (count === 0) return { meanAbsDev: 0, meanDev: 0 };
   return {
-    rms: Math.sqrt(sumSq / count),
     meanAbsDev: sumAbs / count,
     meanDev: sumSigned / count,
   };
@@ -185,17 +181,19 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
 
   const tempoFactor = matchedCount >= 2 ? slope : 1;
   const tempoIntercept = 0;
-  // Score and displayed % both use RMS so they stay in step. RMS weights
-  // single-beat outliers more heavily than meanAbsDev, so a sudden mid-
-  // pattern lurch costs more than the same total deviation spread evenly.
+  // Score and displayed % both use meanAbsDev so they stay in step:
+  //   tempoScore ≈ 100 − 2 × tempoPct
+  // Each percent of average beat-to-beat IOI deviation costs 2 points
+  // (5% ⇒ 90, 10% ⇒ 80). Less punitive than the RMS variant — a single
+  // sharp lurch no longer towers over the rest of the round.
   const hasTempoData = matchedCount >= 2;
   const tStats = hasTempoData
     ? tempoStatistics(expectedOnsets, taps, matchedCount)
-    : { rms: 0, meanAbsDev: 0, meanDev: 0 };
+    : { meanAbsDev: 0, meanDev: 0 };
   const tempoScore = hasTempoData
-    ? Math.max(0, Math.round(100 - 300 * tStats.rms))
+    ? Math.max(0, Math.round(100 - 200 * tStats.meanAbsDev))
     : 0;
-  const tempoPct = Math.round(tStats.rms * 100);
+  const tempoPct = Math.round(tStats.meanAbsDev * 100);
   // Direction: 'fast' or 'slow' only when the signed mean is dominant enough
   // (≥ 50% of the absolute mean) to be the obvious story; otherwise the
   // fluctuations roughly cancel and we label it 'mixed' so the player knows

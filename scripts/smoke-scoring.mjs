@@ -22,33 +22,33 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 }
 
 {
-  // 5% fast, perfect rhythm. RMS = 0.05 → tempo = 100 − 300·0.05 = 85.
-  // Total = avg(100, 85) = 92.5 → 93.
+  // 5% fast, perfect rhythm. meanAbsDev = 0.05 → tempo = 100 − 200·0.05 = 90.
+  // Total = avg(100, 90) = 95.
   const taps = expected5.map((t) => t * 0.95);
   const r = scoreRound(expected5, taps);
   assert(r.judgmentCounts.perfect === 5, '5% fast → 5 perfect after correction');
   assert(r.rhythmScore === 100, `5% fast → rhythm 100 (got ${r.rhythmScore})`);
-  assert(r.tempoScore === 85, `5% fast → tempo 85 (got ${r.tempoScore})`);
-  assert(r.totalScore === 93, `5% fast → total 93 (avg of 100 + 85, got ${r.totalScore})`);
+  assert(r.tempoScore === 90, `5% fast → tempo 90 (got ${r.tempoScore})`);
+  assert(r.totalScore === 95, `5% fast → total 95 (avg of 100 + 90, got ${r.totalScore})`);
 }
 
 {
-  // 10% fast: RMS = 0.1 → tempo = 70. Total = avg(100, 70) = 85.
+  // 10% fast: meanAbsDev = 0.1 → tempo = 80. Total = avg(100, 80) = 90.
   const taps = expected5.map((t) => t * 0.9);
   const r = scoreRound(expected5, taps);
-  assert(r.tempoScore === 70, `10% fast → tempo 70 (got ${r.tempoScore})`);
-  assert(r.totalScore === 85, `10% fast → 85 (got ${r.totalScore})`);
+  assert(r.tempoScore === 80, `10% fast → tempo 80 (got ${r.tempoScore})`);
+  assert(r.totalScore === 90, `10% fast → 90 (got ${r.totalScore})`);
 }
 
 {
-  // 30% fast (1.3x speed): RMS ≈ 0.231 → tempo ≈ 31.
-  // Total = avg(100, 31) = 65.5 → 66.
+  // 30% fast (1.3x speed): meanAbsDev ≈ 0.231 → tempo ≈ 54.
+  // Total = avg(100, 54) = 77.
   const taps = expected5.map((t) => t / 1.3);
   const r = scoreRound(expected5, taps);
   assert(Math.abs(r.tempoFactor - 1 / 1.3) < 0.01, `1.3x → slope ≈ 0.77 (got ${r.tempoFactor.toFixed(3)})`);
   assert(r.rhythmScore === 100, `1.3x → rhythm 100`);
-  assert(r.tempoScore >= 28 && r.tempoScore <= 35, `1.3x → tempo 28..35 (got ${r.tempoScore})`);
-  assert(r.totalScore >= 64 && r.totalScore <= 68, `1.3x → total 64..68 (got ${r.totalScore})`);
+  assert(r.tempoScore >= 52 && r.tempoScore <= 56, `1.3x → tempo 52..56 (got ${r.tempoScore})`);
+  assert(r.totalScore >= 75 && r.totalScore <= 79, `1.3x → total 75..79 (got ${r.totalScore})`);
 }
 
 {
