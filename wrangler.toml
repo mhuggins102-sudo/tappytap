@@ -1,21 +1,18 @@
 # Cloudflare Pages + Functions configuration.
 #
-# Local dev:
-#   wrangler pages dev dist --d1=DB
+# The D1 binding is configured through the Pages dashboard (Settings →
+# Functions → D1 database bindings), not in this file. The binding name
+# must be "DB" so it matches `env.DB` in the Functions code.
 #
-# First-time setup (run once, then update database_id below with the value
-# wrangler prints; commit the file with the real id):
-#   wrangler d1 create tappytap
-#   wrangler d1 execute tappytap --remote --file=./schema.sql
+# To add a local D1 binding for `wrangler pages dev`, append a block like
+# this (replace database_id with your real D1 UUID from the dashboard —
+# the UUID inside the database's Settings tab, not the account UUID in
+# the URL):
 #
-# After deploying to Cloudflare Pages, bind the D1 database in the Pages
-# dashboard (Settings → Functions → D1 database bindings) using the binding
-# name "DB" so this file matches production.
+#   [[d1_databases]]
+#   binding = "DB"
+#   database_name = "tappytap"
+#   database_id = "<your-database-uuid>"
 name = "tappytap"
 compatibility_date = "2025-01-01"
 pages_build_output_dir = "dist"
-
-[[d1_databases]]
-binding = "DB"
-database_name = "tappytap"
-database_id = "6a03df61-58ac-8a6d-ce89-22a9915e61e7"
