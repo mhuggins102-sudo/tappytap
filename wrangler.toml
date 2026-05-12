@@ -15,4 +15,4 @@ pages_build_output_dir = "dist"
 [[d1_databases]]
 binding = "DB"
 database_name = "tappytap"
-database_id = "REPLACE_WITH_REAL_D1_DATABASE_ID"
+database_id = "e004d3b1-e247-42a9-8d99-fe5c9544bae0"
