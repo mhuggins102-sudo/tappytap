@@ -42,6 +42,10 @@ export interface LiveMatch {
  * judgments are raw (no tempo correction); the final score on the result
  * screen applies tempo correction so a player who's consistently fast/slow
  * but rhythmically tight will see better post-correction judgments.
+ *
+ * Prefer `matchTapLiveAdaptive` for in-round feedback — it uses the same
+ * slope-corrected residual the final score uses, so live colors track
+ * what the result screen will show.
  */
 export function matchTapLive(
   tap: number,
@@ -49,6 +53,37 @@ export function matchTapLive(
   expectedIdx: number,
 ): LiveMatch {
   const errorMs = (tap - expectedOnset) * 1000;
+  const { judgment, points } = judge(errorMs);
+  return { expectedIdx, errorMs, judgment, points };
+}
+
+/**
+ * Judge the latest tap using the same slope-corrected residual that the
+ * final scoring will use, computed against the taps seen so far. With
+ * each new tap the slope estimate firms up and the live judgments
+ * converge with what the result screen will display.
+ *
+ * The forced first tap (index 0) is anchored at time zero and the
+ * round's second tap is the first one with any data to correct against.
+ * For the second tap we have only a single ratio, which the slope
+ * estimator fits exactly — that would force the residual to zero and
+ * produce a misleading "perfect" reading, so we fall back to raw error
+ * until there are enough samples (3 total: anchor + 2 actual taps) for
+ * the slope to mean something.
+ */
+export function matchTapLiveAdaptive(
+  tap: number,
+  expectedOnsets: number[],
+  tapHistory: number[],
+): LiveMatch {
+  const expectedIdx = tapHistory.length - 1;
+  const expectedOnset = expectedOnsets[expectedIdx];
+  if (tapHistory.length < 3) {
+    return matchTapLive(tap, expectedOnset, expectedIdx);
+  }
+  const slope = fitSlopeRobustOls(expectedOnsets, tapHistory, tapHistory.length);
+  const corrected = slope * expectedOnset;
+  const errorMs = (tap - corrected) * 1000;
   const { judgment, points } = judge(errorMs);
   return { expectedIdx, errorMs, judgment, points };
 }
@@ -72,8 +107,11 @@ const SLOPE_IRLS_ITERATIONS = 3;
  * single way-off tap contributes only fractionally to the slope. A
  * consistently fast/slow player's taps all fall close to the fitted
  * line, so weights stay near 1 and the slope behaves like plain OLS.
+ *
+ * Exported for use by the live-judging path so each in-progress tap can
+ * be evaluated against the same slope the final scoring will use.
  */
-function fitSlopeRobustOls(expected: number[], taps: number[], n: number): number {
+export function fitSlopeRobustOls(expected: number[], taps: number[], n: number): number {
   const ratios: number[] = [];
   for (let i = 0; i < n; i++) {
     if (expected[i] > 1e-6) ratios.push(taps[i] / expected[i]);
