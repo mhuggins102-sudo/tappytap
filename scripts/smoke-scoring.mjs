@@ -22,33 +22,32 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 }
 
 {
-  // 5% fast, perfect rhythm. meanAbsDev = 0.05 → tempo = 100 − 200·0.05 = 90.
-  // Total = avg(100, 90) = 95.
+  // 5% fast on 0.5 s IOIs: meanAbsMsDev = 25 ms → tempo = 100 − 25·5/6 ≈ 79.
+  // Total = avg(100, 79) = 89 or 90 (round).
   const taps = expected5.map((t) => t * 0.95);
   const r = scoreRound(expected5, taps);
   assert(r.judgmentCounts.perfect === 5, '5% fast → 5 perfect after correction');
   assert(r.rhythmScore === 100, `5% fast → rhythm 100 (got ${r.rhythmScore})`);
-  assert(r.tempoScore === 90, `5% fast → tempo 90 (got ${r.tempoScore})`);
-  assert(r.totalScore === 95, `5% fast → total 95 (avg of 100 + 90, got ${r.totalScore})`);
+  assert(r.tempoScore === 79, `5% fast on 500 ms IOIs → tempo 79 (got ${r.tempoScore})`);
+  assert(r.totalScore === 90, `5% fast → total 90 (avg of 100 + 79, got ${r.totalScore})`);
 }
 
 {
-  // 10% fast: meanAbsDev = 0.1 → tempo = 80. Total = avg(100, 80) = 90.
+  // 10% fast on 0.5 s IOIs: 50 ms deviation → tempo = 100 − 42 = 58.
   const taps = expected5.map((t) => t * 0.9);
   const r = scoreRound(expected5, taps);
-  assert(r.tempoScore === 80, `10% fast → tempo 80 (got ${r.tempoScore})`);
-  assert(r.totalScore === 90, `10% fast → 90 (got ${r.totalScore})`);
+  assert(r.tempoScore === 58, `10% fast on 500 ms IOIs → tempo 58 (got ${r.tempoScore})`);
+  assert(r.totalScore === 79, `10% fast → total 79 (got ${r.totalScore})`);
 }
 
 {
-  // 30% fast (1.3x speed): meanAbsDev ≈ 0.231 → tempo ≈ 54.
-  // Total = avg(100, 54) = 77.
+  // 30% fast (1.3x speed) on 0.5 s IOIs: ~115 ms deviation → tempo ≈ 4.
+  // Tempo dimension fully blown; rhythm still 100 since timing is consistent.
   const taps = expected5.map((t) => t / 1.3);
   const r = scoreRound(expected5, taps);
   assert(Math.abs(r.tempoFactor - 1 / 1.3) < 0.01, `1.3x → slope ≈ 0.77 (got ${r.tempoFactor.toFixed(3)})`);
   assert(r.rhythmScore === 100, `1.3x → rhythm 100`);
-  assert(r.tempoScore >= 52 && r.tempoScore <= 56, `1.3x → tempo 52..56 (got ${r.tempoScore})`);
-  assert(r.totalScore >= 75 && r.totalScore <= 79, `1.3x → total 75..79 (got ${r.totalScore})`);
+  assert(r.tempoScore >= 2 && r.tempoScore <= 8, `1.3x on 500ms IOIs → tempo 2..8 (got ${r.tempoScore})`);
 }
 
 {
@@ -113,14 +112,14 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 }
 
 {
-  // Direction convention: tempoDirection labels fast vs slow; tempoPct is the
-  // unsigned magnitude of the typical IOI deviation.
+  // Direction convention: tempoDirection labels fast vs slow; tempoMsDev is
+  // the unsigned magnitude of the typical IOI deviation in ms.
   const fast = scoreRound([0, 0.5, 1.0], [0, 0.475, 0.95]);
   assert(fast.tempoDirection === 'fast', `5% fast → direction fast (got ${fast.tempoDirection})`);
-  assert(fast.tempoPct > 0, `5% fast → positive magnitude (got ${fast.tempoPct})`);
+  assert(fast.tempoMsDev > 0, `5% fast → positive magnitude (got ${fast.tempoMsDev})`);
   const slow = scoreRound([0, 0.5, 1.0], [0, 0.525, 1.05]);
   assert(slow.tempoDirection === 'slow', `5% slow → direction slow (got ${slow.tempoDirection})`);
-  assert(slow.tempoPct > 0, `5% slow → positive magnitude (got ${slow.tempoPct})`);
+  assert(slow.tempoMsDev > 0, `5% slow → positive magnitude (got ${slow.tempoMsDev})`);
 }
 
 {

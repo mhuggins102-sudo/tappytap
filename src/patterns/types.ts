@@ -26,8 +26,8 @@ export interface RoundResult {
   tempoIntercept: number;
   rhythmScore: number;
   tempoScore: number;
-  /** Magnitude of typical IOI deviation, percent. Unsigned. */
-  tempoPct: number;
+  /** Average absolute beat-to-beat IOI deviation in milliseconds. */
+  tempoMsDev: number;
   /** Whether the deviation has a dominant direction; 'mixed' when it doesn't. */
   tempoDirection: 'fast' | 'slow' | 'mixed' | 'on';
   completenessPct: number;

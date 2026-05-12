@@ -106,7 +106,7 @@ const SUBSCORE_INFO = {
   rhythm:
     "How well-timed your taps were. After correcting for your overall tempo, this is the average timing error per note (misses count as max error). 100 means every tap was right on the beat.",
     tempo:
-    "How steadily you kept time. The % shown is your average beat-to-beat IOI deviation; the score drops by 2 for each percent (5% off ≈ 90, 10% off ≈ 80). Both consistent off-pace and mid-pattern wobble raise that %.",
+    "How steadily you kept time. The ms shown is your average beat-to-beat IOI deviation — measured the same way as Rhythm, so the two scores are directly comparable (each ms costs ~0.83 points; 30 ms ≈ 75, 60 ms ≈ 50, 120 ms ≈ 0). Both consistent off-pace and mid-pattern wobble raise that number.",
 };
 
 function SubScores({ result }: { result: RoundResult }) {
@@ -199,8 +199,9 @@ function JudgmentSummary({ result }: { result: RoundResult }) {
 
 function tempoText(r: RoundResult): string {
   if (r.tempoDirection === 'on') return 'On tempo';
-  if (r.tempoDirection === 'mixed') return `~${r.tempoPct}% unsteady`;
-  return `~${r.tempoPct}% ${r.tempoDirection}`;
+  const ms = Math.round(r.tempoMsDev);
+  if (r.tempoDirection === 'mixed') return `~${ms} ms unsteady`;
+  return `~${ms} ms ${r.tempoDirection}`;
 }
 
 function Tally({ label, n, variant }: { label: string; n: number; variant: string }) {
