@@ -65,15 +65,15 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 }
 
 {
-  // On-tempo *average* but with mid-pattern rushing/slowing. Fitted slope
-  // is close to 1 (mean ratio leans a bit because the first non-zero
-  // ratio is weighted alongside the rest, but stays under the 2% 'fast/slow'
-  // threshold), so the wobble surfaces in the direction label ('mixed')
-  // and in lowered rhythm (residuals from the flat slope line are large).
+  // On-tempo *average* but with mid-pattern rushing/slowing. The robust
+  // OLS slope stays near 1 because the alternating over/under residuals
+  // pull in opposite directions; the wobble surfaces in the direction
+  // label ('mixed') and in lowered rhythm (since residuals from the
+  // flat slope line are large).
   const taps = [0, 0.55, 0.95, 1.55, 1.95];
   const r = scoreRound(expected5, taps);
   assert(Math.abs(r.tempoFactor - 1) < 0.05, 'jittery → fitted slope ≈ 1');
-  assert(r.tempoScore >= 90, `jittery → tempo stays high (got ${r.tempoScore})`);
+  assert(r.tempoScore >= 95, `jittery → tempo stays high (got ${r.tempoScore})`);
   assert(r.tempoDirection === 'mixed', `jittery → direction 'mixed' (got ${r.tempoDirection})`);
   assert(r.rhythmScore < 95, `jittery → rhythm drops (got ${r.rhythmScore})`);
 }
@@ -87,21 +87,15 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 }
 
 {
-  // Way-off tap counts toward Rhythm via the miss penalty. Mean ratio
-  // weights each tap's ratio equally, so a +200ms tap mid-pattern drags
-  // the slope ~5%, smearing modest residuals onto the surrounding taps —
-  // the offending tap still reads 'miss' while nearby taps slip a tier.
-  const taps = [0, 0.5, 1.2, 1.5, 2.0]; // tap #2 is +200ms
+  // Way-off tap. Robust OLS dampens the +300ms outlier so the slope stays
+  // near 1.0, leaving the other taps essentially unsmeared — 4 perfect
+  // plus 1 miss, exactly the player's intent.
+  const taps = [0, 0.5, 1.3, 1.5, 2.0]; // tap #2 is +300ms
   const r = scoreRound(expected5, taps);
   assert(r.judgmentCounts.miss === 1, `way-off → 1 miss (got ${r.judgmentCounts.miss})`);
-  const successes =
-    r.judgmentCounts.perfect +
-    r.judgmentCounts.great +
-    r.judgmentCounts.good +
-    r.judgmentCounts.ok;
-  assert(successes === 4, `way-off → 4 non-miss taps (got ${successes})`);
+  assert(r.judgmentCounts.perfect === 4, `way-off → 4 perfect (got ${r.judgmentCounts.perfect})`);
   assert(r.rhythmScore < 100, `way-off → rhythm drops (got ${r.rhythmScore})`);
-  assert(r.rhythmScore >= 55 && r.rhythmScore <= 85, `way-off → rhythm 55..85 (got ${r.rhythmScore})`);
+  assert(r.rhythmScore >= 60 && r.rhythmScore <= 85, `way-off → rhythm 60..85 (got ${r.rhythmScore})`);
 }
 
 {
@@ -148,17 +142,17 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 }
 
 {
-  // Wonky-middle pattern that ends on the last expected onset. Under mean
-  // ratio, an early-pattern outlier (tap #1 at 0.3 vs expected 0.5 — ratio
-  // 0.6) gets equal weight in the slope mean, so the round reads as
-  // distinctly fast rather than 'on tempo'. This is the inverse trade-off
-  // of OLS: late outliers are softened, early outliers count harder.
+  // Ends on time but with wonky middle taps. Robust OLS dampens both the
+  // early-pattern outlier and the late-pattern one, so the slope stays
+  // near 1 — tempo reads as 'on tempo / mixed' while rhythm shows the
+  // wobble.
   const exp = [0, 0.5, 1.0, 1.5, 2.0];
   const taps = [0, 0.3, 1.0, 1.6, 2.0];
   const r = scoreRound(exp, taps);
-  assert(r.tempoFactor < 0.95, `wonky early → slope clearly fast (got ${r.tempoFactor.toFixed(3)})`);
-  assert(r.tempoDirection === 'fast', `wonky early → direction 'fast' (got ${r.tempoDirection})`);
-  assert(r.rhythmScore < 70, `wonky early → rhythm drops hard (got ${r.rhythmScore})`);
+  assert(Math.abs(r.tempoFactor - 1) < 0.02, `ends on time → slope ≈ 1 (got ${r.tempoFactor.toFixed(3)})`);
+  assert(r.tempoScore >= 95, `ends on time → tempo ≥ 95 (got ${r.tempoScore})`);
+  assert(r.rhythmScore >= 65 && r.rhythmScore <= 90,
+    `wonky middle → rhythm 65..90 (got ${r.rhythmScore})`);
 }
 
 {
@@ -184,10 +178,11 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 {
   // Tier boundaries — 30/60/90/120 ms. Perturb the last tap so chronological
   // order is preserved (the taps array gets sorted in scoreRound). Under
-  // mean ratio with 10 non-zero ratios, perturbing the last tap by Δ moves
-  // the slope by Δ × (1/exp[last]) / 10 = Δ / 10, so the residual at the
-  // perturbed index is Δ × (1 − 1/10) = 0.9 × Δ. Injected errors are sized
-  // to land cleanly in each tier after that absorption.
+  // robust OLS the median-ratio anchor is 1.0 (most ratios unchanged), so
+  // for small errors the IRLS pass is pure OLS — residual at the perturbed
+  // index is Δ × (1 − 1/3.85) ≈ 0.74 × Δ. Once the residual passes 60 ms
+  // the Huber weight kicks in and the converged residual is roughly
+  // Δ − 21 ms. Errors are sized to land cleanly in each tier.
   const exp = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
   const last = exp.length - 1;
   const cases = [

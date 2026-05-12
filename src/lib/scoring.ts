@@ -53,31 +53,53 @@ export function matchTapLive(
   return { expectedIdx, errorMs, judgment, points };
 }
 
+// Per-tap residuals above this threshold get their leverage on the slope
+// fit dampened (Huber weighting). 60 ms is one tier past 'great' — a tap
+// that's already in 'good' territory or worse counts less when deciding
+// the player's overall pace.
+const SLOPE_HUBER_THRESHOLD_MS = 60;
+const SLOPE_IRLS_ITERATIONS = 3;
+
 /**
- * Estimate tempo as the arithmetic mean of tap[i] / expected[i] across
- * matched pairs. Mean of ratios gives each tap equal weight regardless
- * of its position in the pattern, so a single very-late tap at the end
- * of a round (where it has lots of clock value to drag) only contributes
- * 1/N to the slope rather than the larger leverage OLS-through-origin
- * would give it. The trade-off is that an early-pattern tap with a small
- * expected onset can move the slope more than its absolute error would
- * suggest, since its ratio has a small denominator.
+ * Outlier-resistant OLS through origin. The line is pinned at (0, 0)
+ * because the first tap is forced to time zero. The slope itself comes
+ * from iteratively-reweighted least squares with Huber weights on the
+ * per-tap residual, seeded by the median ratio so the first reweight
+ * is already operating on a robust anchor rather than a badly-skewed
+ * pure-OLS fit.
  *
- * The first tap is always time 0 (game forces it), so it's skipped — its
- * 0/0 ratio is undefined — and the residual computation naturally pins
- * tap 0 to perfect.
+ * A tap whose residual exceeds 60 ms gets weight 60/|residual|, so a
+ * single way-off tap contributes only fractionally to the slope. A
+ * consistently fast/slow player's taps all fall close to the fitted
+ * line, so weights stay near 1 and the slope behaves like plain OLS.
  */
-function fitSlopeMeanRatio(expected: number[], taps: number[], n: number): number {
-  let sum = 0;
-  let count = 0;
+function fitSlopeRobustOls(expected: number[], taps: number[], n: number): number {
+  const ratios: number[] = [];
   for (let i = 0; i < n; i++) {
-    if (expected[i] > 1e-6) {
-      sum += taps[i] / expected[i];
-      count++;
-    }
+    if (expected[i] > 1e-6) ratios.push(taps[i] / expected[i]);
   }
-  if (count === 0) return 1;
-  return sum / count;
+  if (ratios.length === 0) return 1;
+  ratios.sort((a, b) => a - b);
+  const mid = Math.floor(ratios.length / 2);
+  let slope = ratios.length % 2 === 0
+    ? (ratios[mid - 1] + ratios[mid]) / 2
+    : ratios[mid];
+
+  for (let iter = 0; iter < SLOPE_IRLS_ITERATIONS; iter++) {
+    let wNum = 0;
+    let wDen = 0;
+    for (let i = 0; i < n; i++) {
+      if (expected[i] <= 1e-6) continue;
+      const residualMs = Math.abs((taps[i] - slope * expected[i]) * 1000);
+      const w = residualMs <= SLOPE_HUBER_THRESHOLD_MS
+        ? 1
+        : SLOPE_HUBER_THRESHOLD_MS / residualMs;
+      wNum += w * taps[i] * expected[i];
+      wDen += w * expected[i] * expected[i];
+    }
+    if (wDen > 1e-9) slope = wNum / wDen;
+  }
+  return slope;
 }
 
 /**
@@ -135,7 +157,7 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
   // expected onsets at the tail.
   const matchedCount = Math.min(expectedCount, totalTaps);
 
-  const slope = matchedCount >= 2 ? fitSlopeMeanRatio(expectedOnsets, taps, matchedCount) : 1;
+  const slope = matchedCount >= 2 ? fitSlopeRobustOls(expectedOnsets, taps, matchedCount) : 1;
   const intercept = 0;
 
   const tapResults: TapResult[] = [];
