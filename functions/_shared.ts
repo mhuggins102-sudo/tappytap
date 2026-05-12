@@ -80,19 +80,21 @@ export async function getRankAndDistribution(
     rank = (higher?.n ?? 0) + 1;
   }
 
-  // Bucket scores into 10-point bands; the 100 case falls into the top bucket.
+  // Bucket scores into 5-point bands (20 buckets across 0..100). The
+  // client smooths the histogram into a curve so the finer granularity
+  // gives the curve enough samples to bend on without looking spiky.
   const distRows = await db
     .prepare(
-      `SELECT MIN(total_score / 10, 9) AS bucket, COUNT(*) AS n
+      `SELECT MIN(total_score / 5, 19) AS bucket, COUNT(*) AS n
          FROM daily_scores
          WHERE date = ?
          GROUP BY bucket`,
     )
     .bind(date)
     .all<{ bucket: number; n: number }>();
-  const distribution = new Array<number>(10).fill(0);
+  const distribution = new Array<number>(20).fill(0);
   for (const row of distRows.results) {
-    const b = Math.max(0, Math.min(9, row.bucket | 0));
+    const b = Math.max(0, Math.min(19, row.bucket | 0));
     distribution[b] = row.n;
   }
 

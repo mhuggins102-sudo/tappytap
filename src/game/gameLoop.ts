@@ -8,7 +8,7 @@ import {
   type SoundTheme,
 } from '../audio/scheduler';
 import { generatePattern } from '../patterns/generator';
-import { generateDailyPattern, todayUtcDateString } from '../patterns/daily';
+import { dailyDifficultyFor, generateDailyPattern, todayUtcDateString } from '../patterns/daily';
 import type { Difficulty, Judgment, Pattern } from '../patterns/types';
 import { rngFromRandom } from '../lib/rng';
 import { matchTapLive, scoreRound, shareString } from '../lib/scoring';
@@ -139,7 +139,7 @@ export async function tryAgain(): Promise<void> {
     await beginRound(
       eng.ctx,
       state.lastPattern,
-      'medium',
+      state.lastPattern.difficulty,
       true,
       false,
       state.lastGrooveIdx ?? undefined,
@@ -167,7 +167,7 @@ export async function startDailyRound(forDate?: string): Promise<void> {
     gameStore.set({
       ...gameStore.get(),
       screen: 'score',
-      difficulty: 'medium',
+      difficulty: dailyDifficultyFor(dateStr),
       isDailyChallenge: true,
       dailyDateStr: dateStr,
       isPractice: false,
@@ -181,7 +181,7 @@ export async function startDailyRound(forDate?: string): Promise<void> {
   }
   const eng = await ensureAudioEngine();
   const pattern = generateDailyPattern(dateStr);
-  await beginRound(eng.ctx, pattern, 'medium', true, false, undefined, dateStr);
+  await beginRound(eng.ctx, pattern, pattern.difficulty, true, false, undefined, dateStr);
 }
 
 async function beginRound(
