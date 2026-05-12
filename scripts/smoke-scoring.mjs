@@ -22,30 +22,30 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 }
 
 {
-  // 5% fast on 0.5 s IOIs: meanAbsMsDev = 25 ms → tempo = 100 − 25/3 ≈ 92.
+  // 5% fast: slope ≈ 0.95 → 5% dev → tempo = 100 − 2·5 = 90. Total avg(100,90) = 95.
   const taps = expected5.map((t) => t * 0.95);
   const r = scoreRound(expected5, taps);
   assert(r.judgmentCounts.perfect === 5, '5% fast → 5 perfect after correction');
   assert(r.rhythmScore === 100, `5% fast → rhythm 100 (got ${r.rhythmScore})`);
-  assert(r.tempoScore === 92, `5% fast on 500 ms IOIs → tempo 92 (got ${r.tempoScore})`);
-  assert(r.totalScore === 96, `5% fast → total 96 (got ${r.totalScore})`);
+  assert(r.tempoScore === 90, `5% fast → tempo 90 (got ${r.tempoScore})`);
+  assert(r.totalScore === 95, `5% fast → total 95 (got ${r.totalScore})`);
 }
 
 {
-  // 10% fast: 50 ms dev → tempo = 100 − 50/3 ≈ 83.
+  // 10% fast: slope ≈ 0.9 → 10% dev → tempo = 80. Total avg(100,80) = 90.
   const taps = expected5.map((t) => t * 0.9);
   const r = scoreRound(expected5, taps);
-  assert(r.tempoScore === 83, `10% fast on 500 ms IOIs → tempo 83 (got ${r.tempoScore})`);
-  assert(r.totalScore === 92, `10% fast → total 92 (got ${r.totalScore})`);
+  assert(r.tempoScore === 80, `10% fast → tempo 80 (got ${r.tempoScore})`);
+  assert(r.totalScore === 90, `10% fast → total 90 (got ${r.totalScore})`);
 }
 
 {
-  // 30% fast (1.3x speed) on 0.5 s IOIs: ~115 ms dev → tempo ≈ 62.
+  // 30% fast (1.3x speed): slope ≈ 0.769 → ~23% dev → tempo ≈ 54.
   const taps = expected5.map((t) => t / 1.3);
   const r = scoreRound(expected5, taps);
   assert(Math.abs(r.tempoFactor - 1 / 1.3) < 0.01, `1.3x → slope ≈ 0.77 (got ${r.tempoFactor.toFixed(3)})`);
   assert(r.rhythmScore === 100, `1.3x → rhythm 100`);
-  assert(r.tempoScore >= 60 && r.tempoScore <= 64, `1.3x on 500ms IOIs → tempo 60..64 (got ${r.tempoScore})`);
+  assert(r.tempoScore >= 52 && r.tempoScore <= 56, `1.3x → tempo 52..56 (got ${r.tempoScore})`);
 }
 
 {
@@ -56,20 +56,21 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
   const r = scoreRound(exp, taps);
   assert(r.judgmentCounts.perfect === 16, 'double-time → 16 perfect');
   assert(r.rhythmScore === 100, 'double-time → rhythm 100');
-  // Double-time on 300 ms IOIs: 150 ms dev each pair × 1/3 coefficient
-  // → tempo = 50. Substantially off but no longer pinned to 0.
-  assert(r.tempoScore === 50, `double-time → tempo 50 (got ${r.tempoScore})`);
+  // Double-time: slope = 0.5 → 50% dev → tempo hits the floor at 0.
+  assert(r.tempoScore === 0, `double-time → tempo 0 (got ${r.tempoScore})`);
   assert(Math.abs(r.tempoFactor - 0.5) < 0.01, 'double-time → slope 0.5');
 }
 
 {
-  // On-tempo *average* but with mid-pattern rushing/slowing. Median ratio
-  // ≈ 1, so a slope-only tempo would give 100; the IOI-variance formula
-  // catches the local wobble so tempo drops too.
+  // On-tempo *average* but with mid-pattern rushing/slowing. Median slope
+  // ≈ 1, so the slope-based tempo score stays high; the wobble surfaces
+  // in the direction label ('mixed') and in lowered rhythm (since
+  // residuals from the flat slope line are large).
   const taps = [0, 0.55, 0.95, 1.55, 1.95];
   const r = scoreRound(expected5, taps);
   assert(Math.abs(r.tempoFactor - 1) < 0.05, 'jittery → median slope ≈ 1');
-  assert(r.tempoScore < 80, `jittery → tempo drops with IOI variance (got ${r.tempoScore})`);
+  assert(r.tempoScore >= 95, `jittery → tempo stays high (got ${r.tempoScore})`);
+  assert(r.tempoDirection === 'mixed', `jittery → direction 'mixed' (got ${r.tempoDirection})`);
   assert(r.rhythmScore < 95, `jittery → rhythm drops (got ${r.rhythmScore})`);
 }
 
@@ -123,15 +124,27 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 }
 
 {
-  // Mid-pattern rushing then recovering: median slope ≈ 1 but local IOIs
-  // are wobbly. Direction should read 'mixed', not 'on tempo', and the
-  // tempo score should drop with the RMS deviation.
+  // Mid-pattern rushing then a late recovery tap. Despite the end-time
+  // recovery, the median ratio of taps/expected reflects the sustained
+  // mid-pattern rushing — slope ≈ 0.85, so this reads as 'fast', not 'mixed'.
   const exp = [0, 0.5, 1.0, 1.5, 2.0, 2.5];
-  // Tap 2 and 3 are rushed (early), then tap 4 is late to recover.
   const taps = [0, 0.5, 0.85, 1.2, 1.7, 2.5];
   const r = scoreRound(exp, taps);
-  assert(r.tempoDirection === 'mixed', `wobbly → direction mixed (got ${r.tempoDirection})`);
-  assert(r.tempoScore < 70, `wobbly → tempo drops (got ${r.tempoScore})`);
+  assert(r.tempoFactor < 0.95, `rushed → slope < 0.95 (got ${r.tempoFactor.toFixed(3)})`);
+  assert(r.tempoDirection === 'fast', `rushed → direction 'fast' (got ${r.tempoDirection})`);
+  assert(r.rhythmScore < 90, `rushed → rhythm drops (got ${r.rhythmScore})`);
+}
+
+{
+  // User's example: ends on time but with wonky middle taps. The slope-based
+  // tempo correctly reads 'on tempo / 100', while rhythm shows the wobble.
+  const exp = [0, 0.5, 1.0, 1.5, 2.0];
+  const taps = [0, 0.3, 1.0, 1.6, 2.0];
+  const r = scoreRound(exp, taps);
+  assert(Math.abs(r.tempoFactor - 1) < 0.01, `ends on time → slope ≈ 1 (got ${r.tempoFactor.toFixed(3)})`);
+  assert(r.tempoScore >= 95, `ends on time → tempo ≥ 95 (got ${r.tempoScore})`);
+  assert(r.rhythmScore >= 70 && r.rhythmScore <= 90,
+    `wonky middle → rhythm 70..90 (got ${r.rhythmScore})`);
 }
 
 {
