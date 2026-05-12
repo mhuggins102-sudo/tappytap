@@ -35,19 +35,83 @@ const STANDARD_CONFIGS: Record<Exclude<Difficulty, 'easy'>, StandardConfig> = {
   },
 };
 
+// On Medium, a portion of rounds use a "repeated motif" mode: a single
+// measure with 6–7 onsets, played back-to-back twice. The motif itself is
+// still random (so the timing stays interesting) but because the second
+// half mirrors the first, the player has a memorable shape to hold onto.
+const MEDIUM_REPEATED_MOTIF_PROBABILITY = 0.4;
+
 export function generatePattern(difficulty: Difficulty, rng: Rng): Pattern {
   if (difficulty === 'easy') return generateEasyPattern(rng);
+  if (difficulty === 'medium' && rng() < MEDIUM_REPEATED_MOTIF_PROBABILITY) {
+    return generateMediumRepeated(rng);
+  }
   return generateStandardPattern(difficulty, rng);
 }
+
+function generateMediumRepeated(rng: Rng): Pattern {
+  const bpm = 100;
+  const subdivision = 2;
+  const motifBeats = 4;
+  const slotsPerMotif = motifBeats * subdivision; // 8
+  // Leave the last slot empty so the motif boundary is audible — without
+  // it, the doubled pattern flows into one 16-slot blur and stops feeling
+  // like a repeat.
+  const fillableSlots = slotsPerMotif - 1;
+  const onsetsPerMotif = 6 + Math.floor(rng() * 2); // 6 or 7
+  const repeats = 2;
+  const secPerSlot = 60 / bpm / subdivision;
+
+  const motif: boolean[] = new Array(slotsPerMotif).fill(false);
+  motif[0] = true;
+  const remaining: number[] = [];
+  for (let i = 1; i < fillableSlots; i++) remaining.push(i);
+
+  let placed = 1;
+  while (placed < onsetsPerMotif && remaining.length > 0) {
+    const idx = Math.floor(rng() * remaining.length);
+    const slot = remaining.splice(idx, 1)[0];
+    motif[slot] = true;
+    placed++;
+  }
+
+  const onsets: number[] = [];
+  for (let r = 0; r < repeats; r++) {
+    for (let i = 0; i < slotsPerMotif; i++) {
+      if (motif[i]) onsets.push((r * slotsPerMotif + i) * secPerSlot);
+    }
+  }
+  const durationSec = slotsPerMotif * repeats * secPerSlot;
+
+  return { bpm, onsets, durationSec, difficulty: 'medium' };
+}
+
+// Easy patterns are a short motif repeated several times. The motif length
+// rotates between 3, 4 (the classic), and 5 beats so the rhythmic feel
+// varies — 4 lands square, 3 feels like a waltz, 5 has a wobbly meter.
+// Onset count scales with motif length (50% density) and the repeat count
+// is tuned so the total round length stays in the same ballpark.
+const EASY_MOTIF_CONFIGS: Array<{
+  beats: number;
+  onsets: number;
+  repeatsMin: number;
+  repeatsMax: number;
+}> = [
+  { beats: 3, onsets: 3, repeatsMin: 4, repeatsMax: 5 },
+  { beats: 4, onsets: 4, repeatsMin: 4, repeatsMax: 5 },
+  { beats: 5, onsets: 5, repeatsMin: 3, repeatsMax: 4 },
+];
 
 function generateEasyPattern(rng: Rng): Pattern {
   const bpm = 100;
   const subdivision = 2;
-  const motifBeats = 4;
-  const slotsPerMotif = motifBeats * subdivision;
+  const cfg = EASY_MOTIF_CONFIGS[Math.floor(rng() * EASY_MOTIF_CONFIGS.length)];
+  const slotsPerMotif = cfg.beats * subdivision;
+  // Leave the final couple of slots empty so each motif breathes — players
+  // hear a clear "and now it repeats" boundary instead of a wall of onsets.
   const fillableSlots = slotsPerMotif - 2;
-  const onsetsPerMotif = 4;
-  const repeats = 4 + Math.floor(rng() * 2);
+  const onsetsPerMotif = cfg.onsets;
+  const repeats = cfg.repeatsMin + Math.floor(rng() * (cfg.repeatsMax - cfg.repeatsMin + 1));
   const secPerSlot = 60 / bpm / subdivision;
 
   const motif: boolean[] = new Array(slotsPerMotif).fill(false);

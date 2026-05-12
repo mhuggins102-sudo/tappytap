@@ -1,5 +1,6 @@
 import { TapTarget } from './TapTarget';
 import { PracticeOverlay } from './PracticeOverlay';
+import { listenAgain } from '../game/gameLoop';
 import type { GameState, Phase } from '../game/stateMachine';
 
 interface Props {
@@ -9,6 +10,13 @@ interface Props {
 export function GameScreen({ state }: Props) {
   const phase = state.phase;
   const showPractice = state.isPractice && phase.kind === 'echoing';
+  // Listen Again is only offered during the listening phase, once per
+  // round, and only for rounds that qualify (medium/hard, non-daily,
+  // non-replay, non-practice). beginRound sets `listenAgainAvailable`.
+  const showListenAgain =
+    phase.kind === 'listening' &&
+    state.listenAgainAvailable &&
+    !state.listenAgainUsed;
 
   return (
     <div className="screen screen--game">
@@ -21,6 +29,11 @@ export function GameScreen({ state }: Props) {
       {showPractice && phase.kind === 'echoing' && <PracticeOverlay phase={phase} />}
       <TapTarget phase={phase} disabled={phase.kind !== 'echoing'} />
       <div className="game-help">{helpFor(phase)}</div>
+      {showListenAgain && (
+        <button className="btn btn--small listen-again" type="button" onClick={listenAgain}>
+          Listen again
+        </button>
+      )}
     </div>
   );
 }

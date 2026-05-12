@@ -46,6 +46,14 @@ export interface GameState {
   dailyImprovedOnRetry: boolean;
   /** The previous best for the date, if dailyImprovedOnRetry is true. */
   dailyPreviousScore: number | null;
+  /**
+   * Whether the player is eligible for one extra pattern playback during
+   * this round. True only on the first (scoring) attempt of a non-daily
+   * medium/hard round; false otherwise.
+   */
+  listenAgainAvailable: boolean;
+  /** Set once the player taps the Listen Again button. */
+  listenAgainUsed: boolean;
 }
 
 export const INITIAL_STATE: GameState = {
@@ -61,4 +69,6 @@ export const INITIAL_STATE: GameState = {
   lastGrooveIdx: null,
   dailyImprovedOnRetry: false,
   dailyPreviousScore: null,
+  listenAgainAvailable: false,
+  listenAgainUsed: false,
 };

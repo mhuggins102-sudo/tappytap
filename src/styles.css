@@ -1278,3 +1278,9 @@ button {
   margin-top: 2px;
   align-self: flex-start;
 }
+
+.listen-again {
+  margin-top: 4px;
+  border-color: rgba(255, 255, 255, 0.18);
+  color: var(--fg-dim);
+}
