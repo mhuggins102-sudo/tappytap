@@ -65,13 +65,13 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 }
 
 {
-  // On-tempo *average* but with mid-pattern rushing/slowing. Median slope
+  // On-tempo *average* but with mid-pattern rushing/slowing. Fitted slope
   // ≈ 1, so the slope-based tempo score stays high; the wobble surfaces
   // in the direction label ('mixed') and in lowered rhythm (since
   // residuals from the flat slope line are large).
   const taps = [0, 0.55, 0.95, 1.55, 1.95];
   const r = scoreRound(expected5, taps);
-  assert(Math.abs(r.tempoFactor - 1) < 0.05, 'jittery → median slope ≈ 1');
+  assert(Math.abs(r.tempoFactor - 1) < 0.05, 'jittery → fitted slope ≈ 1');
   assert(r.tempoScore >= 95, `jittery → tempo stays high (got ${r.tempoScore})`);
   assert(r.tempoDirection === 'mixed', `jittery → direction 'mixed' (got ${r.tempoDirection})`);
   assert(r.rhythmScore < 95, `jittery → rhythm drops (got ${r.rhythmScore})`);
@@ -86,14 +86,21 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 }
 
 {
-  // Way-off taps count toward Rhythm via the miss penalty. 4 perfect + 1
-  // 300ms-off tap → mean error ≈ 24ms, rhythm ≈ 80.
+  // Way-off taps count toward Rhythm via the miss penalty. Under OLS, a
+  // single +300ms tap drags the slope ~4%, smearing modest residuals onto
+  // the surrounding taps too — so the miss is real and nearby taps shift
+  // from 'perfect' down a tier or two.
   const taps = [0, 0.5, 1.3, 1.5, 2.0]; // tap #2 is +300ms
   const r = scoreRound(expected5, taps);
   assert(r.judgmentCounts.miss === 1, `way-off → 1 miss (got ${r.judgmentCounts.miss})`);
-  assert(r.judgmentCounts.perfect === 4, `way-off → 4 perfect`);
+  const successes =
+    r.judgmentCounts.perfect +
+    r.judgmentCounts.great +
+    r.judgmentCounts.good +
+    r.judgmentCounts.ok;
+  assert(successes === 4, `way-off → 4 non-miss taps (got ${successes})`);
   assert(r.rhythmScore < 100, `way-off → rhythm drops (got ${r.rhythmScore})`);
-  assert(r.rhythmScore >= 70 && r.rhythmScore <= 90, `way-off → rhythm 70..90 (got ${r.rhythmScore})`);
+  assert(r.rhythmScore >= 55 && r.rhythmScore <= 80, `way-off → rhythm 55..80 (got ${r.rhythmScore})`);
 }
 
 {
@@ -128,8 +135,9 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 
 {
   // Mid-pattern rushing then a late recovery tap. Despite the end-time
-  // recovery, the median ratio of taps/expected reflects the sustained
-  // mid-pattern rushing — slope ≈ 0.85, so this reads as 'fast', not 'mixed'.
+  // recovery, the OLS-fitted slope absorbs the sustained mid-pattern rush
+  // — slope ≈ 0.91, well above the 1% direction threshold, so this reads
+  // as 'fast' rather than 'mixed'.
   const exp = [0, 0.5, 1.0, 1.5, 2.0, 2.5];
   const taps = [0, 0.5, 0.85, 1.2, 1.7, 2.5];
   const r = scoreRound(exp, taps);
@@ -172,17 +180,19 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 
 {
   // Tier boundaries — 30/60/90/120 ms. Perturb the last tap so chronological
-  // order is preserved (the taps array gets sorted in scoreRound). With many
-  // unperturbed ratios, the median-ratio slope locks to 1.0 so the residual
-  // at the perturbed index equals the injected error exactly.
+  // order is preserved (the taps array gets sorted in scoreRound). Under OLS
+  // through origin, perturbing the last tap by Δ moves the slope by
+  // Δ × exp[last] / Σ(exp²) = Δ × 1.0 / 3.85, so the residual at the
+  // perturbed index is Δ × (1 − 1/3.85) ≈ 0.74 × Δ. Injected errors are
+  // sized to land cleanly in each tier after that absorption.
   const exp = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
   const last = exp.length - 1;
   const cases = [
-    { err: 0.020, tier: 'perfect' },
-    { err: 0.045, tier: 'great' },
-    { err: 0.075, tier: 'good' },
-    { err: 0.105, tier: 'ok' },
-    { err: 0.200, tier: 'miss' },
+    { err: 0.020, tier: 'perfect' }, // residual ~15 ms
+    { err: 0.060, tier: 'great' },   // residual ~44 ms
+    { err: 0.100, tier: 'good' },    // residual ~74 ms
+    { err: 0.140, tier: 'ok' },      // residual ~104 ms
+    { err: 0.220, tier: 'miss' },    // residual ~163 ms
   ];
   for (const c of cases) {
     const taps = [...exp];
@@ -190,7 +200,7 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
     const r = scoreRound(exp, taps);
     assert(
       r.taps[last].judgment === c.tier,
-      `residual ${c.err * 1000}ms at last → ${c.tier} (got ${r.taps[last].judgment})`,
+      `injected ${c.err * 1000}ms at last → ${c.tier} (got ${r.taps[last].judgment})`,
     );
   }
 }
