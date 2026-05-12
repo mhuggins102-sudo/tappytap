@@ -183,16 +183,18 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
 
   const tempoFactor = matchedCount >= 2 ? slope : 1;
   const tempoIntercept = 0;
-  // Score and displayed value both use ms so Tempo and Rhythm sit on the
-  // same axis (each ms of average deviation costs ~0.83 points — identical
-  // coefficient to Rhythm). An 80 in Tempo and an 80 in Rhythm therefore
-  // imply roughly the same precision.
+  // Tempo uses the same ms scale as Rhythm but with half the slope.
+  // Rhythm caps each tap's residual at 120 ms (the miss-penalty), so its
+  // worst-case per-onset contribution is bounded. Tempo's per-IOI deviation
+  // is uncapped — a player consistently 30% off pace produces 150 ms of
+  // deviation on every beat, well past Rhythm's per-tap ceiling — so we
+  // halve the coefficient to keep the two subscores in a comparable range.
   const hasTempoData = matchedCount >= 2;
   const tStats = hasTempoData
     ? tempoStatistics(expectedOnsets, taps, matchedCount)
     : { meanAbsMsDev: 0, meanMsDev: 0 };
   const tempoScore = hasTempoData
-    ? Math.max(0, Math.round(100 - tStats.meanAbsMsDev * (5 / 6)))
+    ? Math.max(0, Math.round(100 - tStats.meanAbsMsDev * 0.5))
     : 0;
   const tempoMsDev = tStats.meanAbsMsDev;
   // Direction: 'fast' or 'slow' only when the signed mean is dominant enough
