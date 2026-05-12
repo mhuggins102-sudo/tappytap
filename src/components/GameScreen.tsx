@@ -10,13 +10,15 @@ interface Props {
 export function GameScreen({ state }: Props) {
   const phase = state.phase;
   const showPractice = state.isPractice && phase.kind === 'echoing';
-  // Listen Again is only offered during the listening phase, once per
-  // round, and only for rounds that qualify (medium/hard, non-daily,
-  // non-replay, non-practice). beginRound sets `listenAgainAvailable`.
+  // Listen Again stays visible from the moment the pattern starts playing
+  // until the player makes their first tap. That covers the listening
+  // phase, the brief gap before echo, and the "ready" sub-state of the
+  // echo phase (echoStartTime === null). One use per round.
   const showListenAgain =
-    phase.kind === 'listening' &&
     state.listenAgainAvailable &&
-    !state.listenAgainUsed;
+    !state.listenAgainUsed &&
+    (phase.kind === 'listening' ||
+      (phase.kind === 'echoing' && phase.echoStartTime === null));
 
   return (
     <div className="screen screen--game">

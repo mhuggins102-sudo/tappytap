@@ -51,14 +51,17 @@ export function generatePattern(difficulty: Difficulty, rng: Rng): Pattern {
 
 function generateMediumRepeated(rng: Rng): Pattern {
   const bpm = 100;
-  const subdivision = 2;
+  // 16th-note resolution (subdivision 4 = four slots per beat) so the
+  // motif's inter-onset intervals can land anywhere from a 16th to a
+  // dotted-eighth apart. Coarser subdivision made these motifs sound
+  // metronomic — every 8th-note slot was filled, which felt like Easy.
+  const subdivision = 4;
   const motifBeats = 4;
-  const slotsPerMotif = motifBeats * subdivision; // 8
-  // Leave the last slot empty so the motif boundary is audible — without
-  // it, the doubled pattern flows into one 16-slot blur and stops feeling
-  // like a repeat.
+  const slotsPerMotif = motifBeats * subdivision; // 16
+  // Leave the last slot empty so the repeat boundary stays audible.
   const fillableSlots = slotsPerMotif - 1;
-  const onsetsPerMotif = 6 + Math.floor(rng() * 2); // 6 or 7
+  // Enough onsets for "close succession" while leaving room for gaps.
+  const onsetsPerMotif = 7 + Math.floor(rng() * 2); // 7 or 8
   const repeats = 2;
   const secPerSlot = 60 / bpm / subdivision;
 
