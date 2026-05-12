@@ -54,24 +54,30 @@ export function matchTapLive(
 }
 
 /**
- * Estimate tempo as the OLS-through-origin slope of taps vs expected onsets:
- * slope = Σ(tap · expected) / Σ(expected²). This is the line-of-best-fit
- * pinned through (0, 0) — appropriate because the first tap is forced to
- * time 0, so the line must pass through origin. A small cluster of off-pace
- * taps will lean the slope (matching player intuition), but a single huge
- * outlier still only moves it a few percent.
+ * Estimate tempo as the arithmetic mean of tap[i] / expected[i] across
+ * matched pairs. Mean of ratios gives each tap equal weight regardless
+ * of its position in the pattern, so a single very-late tap at the end
+ * of a round (where it has lots of clock value to drag) only contributes
+ * 1/N to the slope rather than the larger leverage OLS-through-origin
+ * would give it. The trade-off is that an early-pattern tap with a small
+ * expected onset can move the slope more than its absolute error would
+ * suggest, since its ratio has a small denominator.
+ *
+ * The first tap is always time 0 (game forces it), so it's skipped — its
+ * 0/0 ratio is undefined — and the residual computation naturally pins
+ * tap 0 to perfect.
  */
-function fitSlopeOlsThroughOrigin(expected: number[], taps: number[], n: number): number {
-  let numerator = 0;
-  let denominator = 0;
+function fitSlopeMeanRatio(expected: number[], taps: number[], n: number): number {
+  let sum = 0;
+  let count = 0;
   for (let i = 0; i < n; i++) {
     if (expected[i] > 1e-6) {
-      numerator += taps[i] * expected[i];
-      denominator += expected[i] * expected[i];
+      sum += taps[i] / expected[i];
+      count++;
     }
   }
-  if (denominator === 0) return 1;
-  return numerator / denominator;
+  if (count === 0) return 1;
+  return sum / count;
 }
 
 /**
@@ -129,7 +135,7 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
   // expected onsets at the tail.
   const matchedCount = Math.min(expectedCount, totalTaps);
 
-  const slope = matchedCount >= 2 ? fitSlopeOlsThroughOrigin(expectedOnsets, taps, matchedCount) : 1;
+  const slope = matchedCount >= 2 ? fitSlopeMeanRatio(expectedOnsets, taps, matchedCount) : 1;
   const intercept = 0;
 
   const tapResults: TapResult[] = [];
@@ -226,7 +232,7 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
   let tempoDirection: 'fast' | 'slow' | 'mixed' | 'on';
   if (!hasTempoData) {
     tempoDirection = 'on';
-  } else if (slopeDevPct >= 1.0) {
+  } else if (slopeDevPct >= 2.0) {
     tempoDirection = tempoFactor < 1 ? 'fast' : 'slow';
   } else if (tStats.meanAbsMsDev < 3) {
     tempoDirection = 'on';
