@@ -22,32 +22,30 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
 }
 
 {
-  // 5% fast on 0.5 s IOIs: meanAbsMsDev = 25 ms → tempo = 100 − 25·0.5 = 88.
-  // Total = avg(100, 88) = 94.
+  // 5% fast on 0.5 s IOIs: meanAbsMsDev = 25 ms → tempo = 100 − 25/3 ≈ 92.
   const taps = expected5.map((t) => t * 0.95);
   const r = scoreRound(expected5, taps);
   assert(r.judgmentCounts.perfect === 5, '5% fast → 5 perfect after correction');
   assert(r.rhythmScore === 100, `5% fast → rhythm 100 (got ${r.rhythmScore})`);
-  assert(r.tempoScore >= 87 && r.tempoScore <= 88, `5% fast on 500 ms IOIs → tempo 87..88 (got ${r.tempoScore})`);
-  assert(r.totalScore >= 93 && r.totalScore <= 94, `5% fast → total 93..94 (got ${r.totalScore})`);
+  assert(r.tempoScore === 92, `5% fast on 500 ms IOIs → tempo 92 (got ${r.tempoScore})`);
+  assert(r.totalScore === 96, `5% fast → total 96 (got ${r.totalScore})`);
 }
 
 {
-  // 10% fast on 0.5 s IOIs: 50 ms deviation → tempo = 100 − 25 = 75.
+  // 10% fast: 50 ms dev → tempo = 100 − 50/3 ≈ 83.
   const taps = expected5.map((t) => t * 0.9);
   const r = scoreRound(expected5, taps);
-  assert(r.tempoScore === 75, `10% fast on 500 ms IOIs → tempo 75 (got ${r.tempoScore})`);
-  assert(r.totalScore === 88, `10% fast → total 88 (got ${r.totalScore})`);
+  assert(r.tempoScore === 83, `10% fast on 500 ms IOIs → tempo 83 (got ${r.tempoScore})`);
+  assert(r.totalScore === 92, `10% fast → total 92 (got ${r.totalScore})`);
 }
 
 {
-  // 30% fast (1.3x speed) on 0.5 s IOIs: ~115 ms deviation → tempo ≈ 43.
-  // Less punitive than the old 5/6 coefficient (was tempo ~4).
+  // 30% fast (1.3x speed) on 0.5 s IOIs: ~115 ms dev → tempo ≈ 62.
   const taps = expected5.map((t) => t / 1.3);
   const r = scoreRound(expected5, taps);
   assert(Math.abs(r.tempoFactor - 1 / 1.3) < 0.01, `1.3x → slope ≈ 0.77 (got ${r.tempoFactor.toFixed(3)})`);
   assert(r.rhythmScore === 100, `1.3x → rhythm 100`);
-  assert(r.tempoScore >= 40 && r.tempoScore <= 46, `1.3x on 500ms IOIs → tempo 40..46 (got ${r.tempoScore})`);
+  assert(r.tempoScore >= 60 && r.tempoScore <= 64, `1.3x on 500ms IOIs → tempo 60..64 (got ${r.tempoScore})`);
 }
 
 {
@@ -58,22 +56,21 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
   const r = scoreRound(exp, taps);
   assert(r.judgmentCounts.perfect === 16, 'double-time → 16 perfect');
   assert(r.rhythmScore === 100, 'double-time → rhythm 100');
-  // 150 ms IOI dev on every pair × 0.5 coefficient → tempo = 25. Lower than
-  // anything below but no longer pinned to 0; the softened slope leaves
-  // room above zero for "substantially off but not infinitely so."
-  assert(r.tempoScore === 25, `double-time → tempo 25 (got ${r.tempoScore})`);
+  // Double-time on 300 ms IOIs: 150 ms dev each pair × 1/3 coefficient
+  // → tempo = 50. Substantially off but no longer pinned to 0.
+  assert(r.tempoScore === 50, `double-time → tempo 50 (got ${r.tempoScore})`);
   assert(Math.abs(r.tempoFactor - 0.5) < 0.01, 'double-time → slope 0.5');
 }
 
 {
   // On-tempo *average* but with mid-pattern rushing/slowing. Median ratio
-  // ≈ 1, so the old slope-only tempo gave 100; the new RMS formula picks
-  // up the local IOI fluctuations so tempo drops too.
+  // ≈ 1, so a slope-only tempo would give 100; the IOI-variance formula
+  // catches the local wobble so tempo drops too.
   const taps = [0, 0.55, 0.95, 1.55, 1.95];
   const r = scoreRound(expected5, taps);
   assert(Math.abs(r.tempoFactor - 1) < 0.05, 'jittery → median slope ≈ 1');
-  assert(r.tempoScore < 75, `jittery → tempo drops with IOI variance (got ${r.tempoScore})`);
-  assert(r.rhythmScore < 80, `jittery → rhythm drops (got ${r.rhythmScore})`);
+  assert(r.tempoScore < 80, `jittery → tempo drops with IOI variance (got ${r.tempoScore})`);
+  assert(r.rhythmScore < 95, `jittery → rhythm drops (got ${r.rhythmScore})`);
 }
 
 {
@@ -134,7 +131,7 @@ const expected5 = [0, 0.5, 1.0, 1.5, 2.0];
   const taps = [0, 0.5, 0.85, 1.2, 1.7, 2.5];
   const r = scoreRound(exp, taps);
   assert(r.tempoDirection === 'mixed', `wobbly → direction mixed (got ${r.tempoDirection})`);
-  assert(r.tempoScore < 60, `wobbly → tempo drops (got ${r.tempoScore})`);
+  assert(r.tempoScore < 70, `wobbly → tempo drops (got ${r.tempoScore})`);
 }
 
 {

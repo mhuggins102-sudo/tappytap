@@ -78,15 +78,16 @@ function fitSlopeMedianRatio(expected: number[], taps: number[], n: number): num
 }
 
 /**
- * Tempo statistics computed from local IOI ratios, expressed in milliseconds
- * so the score is directly comparable to Rhythm. Each ms costs ~0.83 points
- * (same coefficient as Rhythm), so an 80-tempo and an 80-rhythm mean the
- * player held ~24 ms of average error in each dimension.
+ * Tempo statistics computed from local IOI ratios, expressed in milliseconds.
+ * Each per-IOI deviation is clamped to `capMs` before being averaged so a
+ * single huge IOI doesn't dominate the score; the signed mean is kept
+ * uncapped so the direction label still reflects the raw lean.
  */
 function tempoStatistics(
   expected: number[],
   taps: number[],
   n: number,
+  capMs: number,
 ): { meanAbsMsDev: number; meanMsDev: number } {
   if (n < 2) return { meanAbsMsDev: 0, meanMsDev: 0 };
   let sumAbs = 0;
@@ -98,7 +99,7 @@ function tempoStatistics(
     const tapIoi = taps[i + 1] - taps[i];
     // ms-level deviation of this beat-to-beat interval from target.
     const devMs = (tapIoi - expIoi) * 1000;
-    sumAbs += Math.abs(devMs);
+    sumAbs += Math.min(Math.abs(devMs), capMs);
     sumSigned += devMs;
     count++;
   }
@@ -109,12 +110,17 @@ function tempoStatistics(
   };
 }
 
-const MISS_MS = 120;
-// A miss — whether a way-off tap or a note the player didn't reach — feeds
-// this fixed penalty into the rhythm calculation. Matched residuals are
-// capped at the same value so a single very-late tap is no worse for rhythm
-// than not tapping at all.
-const RHYTHM_MISS_PENALTY_MS = MISS_MS;
+// Score-side cap: each per-tap residual and each per-IOI deviation is
+// clamped to this value before being averaged into the rhythm and tempo
+// scores. The judgment tiers above (used for color coding) still use the
+// 120 ms miss threshold — these two purposes are decoupled. Setting the
+// scoring cap higher (and using a smaller coefficient below) gives
+// outliers room above zero so a single bad tap doesn't tank the score.
+const SCORE_PENALTY_CAP_MS = 300;
+// Linear slope: each ms of average capped error costs 1/3 of a point. With
+// the 300 ms cap, a fully-capped element contributes exactly 100 / N to
+// the deduction, so an all-miss round still floors at 0 just as before.
+const SCORE_COEFFICIENT = 1 / 3;
 
 export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundResult {
   const taps = [...tapsSec].sort((a, b) => a - b);
@@ -140,7 +146,7 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
     const rawErrorMs = (taps[i] - expRaw) * 1000;
     const { judgment } = judge(errorMs);
     if (judgment !== 'miss') successCount++;
-    rhythmErrorSum += Math.min(Math.abs(errorMs), RHYTHM_MISS_PENALTY_MS);
+    rhythmErrorSum += Math.min(Math.abs(errorMs), SCORE_PENALTY_CAP_MS);
     tapResults.push({
       expectedIdx: i,
       tapTime: taps[i],
@@ -154,7 +160,7 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
   // They feed the same penalty into rhythm as a matched miss, so stopping
   // early hurts rhythm proportionally.
   for (let i = matchedCount; i < expectedCount; i++) {
-    rhythmErrorSum += RHYTHM_MISS_PENALTY_MS;
+    rhythmErrorSum += SCORE_PENALTY_CAP_MS;
     tapResults.push({
       expectedIdx: i,
       tapTime: null,
@@ -179,22 +185,20 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
   const meanAbsErrorMs = expectedCount > 0 ? rhythmErrorSum / expectedCount : 0;
   const rhythmScore = expectedCount === 0
     ? 0
-    : Math.max(0, Math.round(100 - meanAbsErrorMs * (5 / 6)));
+    : Math.max(0, Math.round(100 - meanAbsErrorMs * SCORE_COEFFICIENT));
 
   const tempoFactor = matchedCount >= 2 ? slope : 1;
   const tempoIntercept = 0;
-  // Tempo uses the same ms scale as Rhythm but with half the slope.
-  // Rhythm caps each tap's residual at 120 ms (the miss-penalty), so its
-  // worst-case per-onset contribution is bounded. Tempo's per-IOI deviation
-  // is uncapped — a player consistently 30% off pace produces 150 ms of
-  // deviation on every beat, well past Rhythm's per-tap ceiling — so we
-  // halve the coefficient to keep the two subscores in a comparable range.
+  // Tempo shares Rhythm's scoring shape: each per-IOI deviation is capped
+  // at SCORE_PENALTY_CAP_MS and averaged, then a fully-capped element
+  // contributes exactly 100/N to the deduction. Same axis, same slope as
+  // Rhythm — so an 80 in either subscore really does mean similar precision.
   const hasTempoData = matchedCount >= 2;
   const tStats = hasTempoData
-    ? tempoStatistics(expectedOnsets, taps, matchedCount)
+    ? tempoStatistics(expectedOnsets, taps, matchedCount, SCORE_PENALTY_CAP_MS)
     : { meanAbsMsDev: 0, meanMsDev: 0 };
   const tempoScore = hasTempoData
-    ? Math.max(0, Math.round(100 - tStats.meanAbsMsDev * 0.5))
+    ? Math.max(0, Math.round(100 - tStats.meanAbsMsDev * SCORE_COEFFICIENT))
     : 0;
   const tempoMsDev = tStats.meanAbsMsDev;
   // Direction: 'fast' or 'slow' only when the signed mean is dominant enough
