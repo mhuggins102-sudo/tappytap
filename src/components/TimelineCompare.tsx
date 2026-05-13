@@ -4,13 +4,14 @@ import type { Pattern, RoundResult, TapResult } from '../patterns/types';
 interface Props {
   pattern: Pattern;
   result: RoundResult;
+  /** When true, taps render at their tempo-corrected position. The
+   *  Tempo subscore tile in ScoreScreen owns this state. */
+  corrected: boolean;
 }
 
-export function TimelineCompare({ pattern, result }: Props) {
+export function TimelineCompare({ pattern, result, corrected }: Props) {
   const expected = pattern.onsets;
   const slope = result.tempoFactor || 1;
-  const intercept = result.tempoIntercept || 0;
-  const showOnTempo = Math.abs(slope - 1) > 0.01 || Math.abs(intercept) > 0.01;
 
   const tapTimes = result.taps
     .map((t) => t.tapTime)
@@ -25,7 +26,6 @@ export function TimelineCompare({ pattern, result }: Props) {
   const maxOnTempo = tapTimes.length ? Math.max(...tapTimes.map(onTempo)) : 0;
   const denom = Math.max(0.001, pattern.durationSec, maxTap, maxOnTempo);
 
-  const [corrected, setCorrected] = useState(false);
   const [selectedTap, setSelectedTap] = useState<number | null>(null);
 
   // Dismiss the tap-detail popover when the user clicks/taps anywhere that
@@ -46,15 +46,6 @@ export function TimelineCompare({ pattern, result }: Props) {
 
   return (
     <>
-      {showOnTempo && (
-        <button
-          className="btn btn--small timeline__reveal"
-          type="button"
-          onClick={() => setCorrected((c) => !c)}
-        >
-          {corrected ? 'Show raw timing' : 'Show on-tempo timing'}
-        </button>
-      )}
       <div className="timeline">
         <div className="timeline__row">
           <span className="timeline__label">Pattern</span>
