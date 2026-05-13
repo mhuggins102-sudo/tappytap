@@ -30,6 +30,13 @@ body,
   margin: 0;
 }
 
+/* Tint the html background to match the app palette so the iOS safe area
+   (below the home indicator in standalone-mode home-screen launches) and
+   any overscroll bounce don't show through as flat black. */
+html {
+  background: var(--bg);
+}
+
 body {
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background: radial-gradient(circle at 30% 0%, #1c1f2f, var(--bg) 60%);
@@ -48,7 +55,14 @@ button {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  /* Pad inside the iOS safe area so content (especially the bottom row
+     of action buttons) doesn't sit underneath the home indicator when
+     the site is launched as a standalone web app. */
   padding: clamp(10px, 2.5vh, 24px);
+  padding-top: calc(clamp(10px, 2.5vh, 24px) + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(clamp(10px, 2.5vh, 24px) + env(safe-area-inset-bottom, 0px));
+  padding-left: calc(clamp(10px, 2.5vh, 24px) + env(safe-area-inset-left, 0px));
+  padding-right: calc(clamp(10px, 2.5vh, 24px) + env(safe-area-inset-right, 0px));
   gap: 0;
   overflow: hidden;
 }

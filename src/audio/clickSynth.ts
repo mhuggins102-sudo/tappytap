@@ -307,24 +307,107 @@ export function scheduleMarimba(ctx: AudioContext, when: number, freq: number): 
   }
 }
 
-// Synth bass: plucky sawtooth through a falling-cutoff lowpass.
+// Synth bass: a layered voice with a saw body filtered down, a sub-octave
+// sine for thump, and a tiny bandpassed noise transient on attack for
+// definition. Sounds noticeably fatter than a single-osc saw.
 export function scheduleSynthBass(ctx: AudioContext, when: number, freq: number): void {
   const start = Math.max(when, ctx.currentTime);
-  const osc = ctx.createOscillator();
-  osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(freq, start);
+  const mix = ctx.createGain();
+  mix.gain.value = 1;
+  mix.connect(getOutputNode(ctx));
+
+  // Body: sawtooth through a resonant lowpass that sweeps down.
+  const body = ctx.createOscillator();
+  body.type = 'sawtooth';
+  body.frequency.setValueAtTime(freq, start);
   const filt = ctx.createBiquadFilter();
   filt.type = 'lowpass';
-  filt.frequency.setValueAtTime(900, start);
-  filt.frequency.exponentialRampToValueAtTime(220, start + 0.3);
-  filt.Q.value = 5;
-  const env = ctx.createGain();
-  env.gain.setValueAtTime(0.0001, start);
-  env.gain.exponentialRampToValueAtTime(0.45, start + 0.005);
-  env.gain.exponentialRampToValueAtTime(0.0001, start + 0.4);
-  osc.connect(filt).connect(env).connect(getOutputNode(ctx));
-  osc.start(start);
-  osc.stop(start + 0.45);
+  filt.frequency.setValueAtTime(1200, start);
+  filt.frequency.exponentialRampToValueAtTime(180, start + 0.32);
+  filt.Q.value = 6;
+  const bodyEnv = ctx.createGain();
+  bodyEnv.gain.setValueAtTime(0.0001, start);
+  bodyEnv.gain.exponentialRampToValueAtTime(0.36, start + 0.005);
+  bodyEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.4);
+  body.connect(filt).connect(bodyEnv).connect(mix);
+  body.start(start);
+  body.stop(start + 0.45);
+
+  // Sub: sine an octave below the fundamental adds a felt low end.
+  const sub = ctx.createOscillator();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(freq * 0.5, start);
+  const subEnv = ctx.createGain();
+  subEnv.gain.setValueAtTime(0.0001, start);
+  subEnv.gain.exponentialRampToValueAtTime(0.22, start + 0.005);
+  subEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
+  sub.connect(subEnv).connect(mix);
+  sub.start(start);
+  sub.stop(start + 0.4);
+
+  // Pluck transient: a brief bandpassed noise burst gives each note a
+  // crisper "thwack" attack, the way a real bass guitar or synth pluck
+  // articulates each pitch.
+  const noise = ctx.createBufferSource();
+  noise.buffer = noiseBuffer(ctx, 0.02);
+  const noiseFilt = ctx.createBiquadFilter();
+  noiseFilt.type = 'bandpass';
+  noiseFilt.frequency.value = Math.min(4000, freq * 8);
+  noiseFilt.Q.value = 2;
+  const noiseEnv = ctx.createGain();
+  noiseEnv.gain.setValueAtTime(0, start);
+  noiseEnv.gain.linearRampToValueAtTime(0.06, start + 0.002);
+  noiseEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.025);
+  noise.connect(noiseFilt).connect(noiseEnv).connect(mix);
+  noise.start(start);
+  noise.stop(start + 0.03);
+}
+
+// Rhodes-style electric piano: a "bar" sine fundamental that sustains
+// for a moment plus a quick-decaying "tine" partial four octaves up.
+// Add a soft second partial slightly detuned for color. Approximates
+// the iconic bell-meets-sine voicing of a Fender Rhodes.
+export function scheduleRhodes(ctx: AudioContext, when: number, freq: number): void {
+  const start = Math.max(when, ctx.currentTime);
+  const mix = ctx.createGain();
+  mix.gain.value = 1;
+  mix.connect(getOutputNode(ctx));
+
+  // Bar fundamental — long sustain.
+  const bar = ctx.createOscillator();
+  bar.type = 'sine';
+  bar.frequency.setValueAtTime(freq, start);
+  const barEnv = ctx.createGain();
+  barEnv.gain.setValueAtTime(0.0001, start);
+  barEnv.gain.exponentialRampToValueAtTime(0.32, start + 0.008);
+  barEnv.gain.exponentialRampToValueAtTime(0.0001, start + 1.2);
+  bar.connect(barEnv).connect(mix);
+  bar.start(start);
+  bar.stop(start + 1.25);
+
+  // Tine — sharp bell-like attack two octaves up that fades fast.
+  const tine = ctx.createOscillator();
+  tine.type = 'sine';
+  tine.frequency.setValueAtTime(freq * 4, start);
+  const tineEnv = ctx.createGain();
+  tineEnv.gain.setValueAtTime(0.0001, start);
+  tineEnv.gain.exponentialRampToValueAtTime(0.18, start + 0.003);
+  tineEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.25);
+  tine.connect(tineEnv).connect(mix);
+  tine.start(start);
+  tine.stop(start + 0.27);
+
+  // Color partial — slightly-detuned octave for warmth.
+  const color = ctx.createOscillator();
+  color.type = 'sine';
+  color.frequency.setValueAtTime(freq * 2.005, start);
+  const colorEnv = ctx.createGain();
+  colorEnv.gain.setValueAtTime(0.0001, start);
+  colorEnv.gain.exponentialRampToValueAtTime(0.1, start + 0.005);
+  colorEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.8);
+  color.connect(colorEnv).connect(mix);
+  color.start(start);
+  color.stop(start + 0.85);
 }
 
 // Synth lead: filtered square wave with a slow filter sweep down.
