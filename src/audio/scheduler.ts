@@ -1,6 +1,7 @@
 import type { Pattern } from '../patterns/types';
 import {
   scheduleBeep,
+  scheduleBell,
   scheduleBikeHorn,
   scheduleClap,
   scheduleClave,
@@ -89,6 +90,9 @@ const MARIMBA_FREQS = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5]; // C5..C6
 const SYNTH_FREQS = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25]; // C4..C5
 const PIANO_FREQS = [261.63, 329.63, 392.0, 523.25, 659.25, 783.99]; // C4 E4 G4 C5 E5 G5
 const BASS_FREQS = [65.41, 73.42, 82.41, 98.0, 110.0, 130.81]; // C2..C3
+// Bell sits in a higher register where the inharmonic shimmer reads as
+// glockenspiel / chime rather than tubular bell.
+const BELL_FREQS = [659.25, 783.99, 880.0, 1046.5, 1318.51, 1567.98]; // E5..G6
 // Kazoo lives in the mid-range "humming" register where the buzz reads
 // most clearly. Bicycle horn alternates between two-ish notes — a low
 // "ah" and a high "oo" — for that bulb-honk back-and-forth feel.
@@ -167,7 +171,9 @@ function scheduleMelodicVoice(
             ? KAZOO_FREQS
             : instrument === 'bikeHorn'
               ? BIKE_HORN_FREQS
-              : MARIMBA_FREQS;
+              : instrument === 'bell'
+                ? BELL_FREQS
+                : MARIMBA_FREQS;
   const freq = scale[voiceIdx % scale.length];
   switch (instrument) {
     case 'marimba':
@@ -181,6 +187,9 @@ function scheduleMelodicVoice(
       break;
     case 'piano':
       schedulePiano(ctx, when, freq);
+      break;
+    case 'bell':
+      scheduleBell(ctx, when, freq);
       break;
     case 'kazoo':
       scheduleKazoo(ctx, when, freq);

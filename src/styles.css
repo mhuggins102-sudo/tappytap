@@ -1279,8 +1279,16 @@ button {
   align-self: flex-start;
 }
 
+/* Fixed-height slot rendered for the whole qualifying round so the
+   button can appear and disappear without shifting the tap target. */
+.listen-again-slot {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .listen-again {
-  margin-top: 4px;
   border-color: rgba(255, 255, 255, 0.18);
   color: var(--fg-dim);
 }
