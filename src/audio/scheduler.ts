@@ -9,6 +9,7 @@ import {
   scheduleCowbell,
   scheduleHat,
   scheduleHiTom,
+  scheduleKalimba,
   scheduleKazoo,
   scheduleKick,
   scheduleMarimba,
@@ -18,6 +19,7 @@ import {
   scheduleRim,
   scheduleShaker,
   scheduleSnare,
+  scheduleSteelPan,
   scheduleSynthBass,
   scheduleSynthLead,
   scheduleTom,
@@ -97,6 +99,11 @@ const BASS_FREQS = [65.41, 73.42, 82.41, 98.0, 110.0, 130.81]; // C2..C3
 // Bell sits in a higher register where the inharmonic shimmer reads as
 // glockenspiel / chime rather than tubular bell.
 const BELL_FREQS = [659.25, 783.99, 880.0, 1046.5, 1318.51, 1567.98]; // E5..G6
+// Kalimba sits in a mid register where the warm sine partials sound
+// most like a thumb-piano tine rather than glockenspiel.
+const KALIMBA_FREQS = [261.63, 329.63, 392.0, 523.25, 659.25, 783.99]; // C4..G5
+// Steel pan: bright mid register with its characteristic shimmer.
+const STEEL_PAN_FREQS = [293.66, 369.99, 440.0, 523.25, 622.25, 740.0]; // D4..F#5
 // Kazoo lives in the mid-range "humming" register where the buzz reads
 // most clearly. Bicycle horn alternates between two-ish notes — a low
 // "ah" and a high "oo" — for that bulb-honk back-and-forth feel.
@@ -179,7 +186,11 @@ function scheduleMelodicVoice(
                 ? BIKE_HORN_FREQS
                 : instrument === 'bell'
                   ? BELL_FREQS
-                  : MARIMBA_FREQS;
+                  : instrument === 'kalimba'
+                    ? KALIMBA_FREQS
+                    : instrument === 'steelPan'
+                      ? STEEL_PAN_FREQS
+                      : MARIMBA_FREQS;
   const freq = scale[voiceIdx % scale.length];
   switch (instrument) {
     case 'marimba':
@@ -199,6 +210,12 @@ function scheduleMelodicVoice(
       break;
     case 'bell':
       scheduleBell(ctx, when, freq);
+      break;
+    case 'kalimba':
+      scheduleKalimba(ctx, when, freq);
+      break;
+    case 'steelPan':
+      scheduleSteelPan(ctx, when, freq);
       break;
     case 'kazoo':
       scheduleKazoo(ctx, when, freq);

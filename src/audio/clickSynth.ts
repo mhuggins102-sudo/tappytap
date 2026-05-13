@@ -70,46 +70,94 @@ function noiseBuffer(ctx: AudioContext, durationSec: number): AudioBuffer {
   return buf;
 }
 
+// Kick: a high-frequency click transient layered over a pitched sine
+// thump. The click gives a punchy attack ("beater-on-head" definition),
+// the thump is the sub-bass body that drops from 180 Hz to 40 Hz.
 export function scheduleKick(ctx: AudioContext, when: number): void {
   const start = Math.max(when, ctx.currentTime);
-  const osc = ctx.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(150, start);
-  osc.frequency.exponentialRampToValueAtTime(45, start + 0.12);
-  const env = ctx.createGain();
-  env.gain.setValueAtTime(0.0001, start);
-  env.gain.exponentialRampToValueAtTime(0.9, start + 0.005);
-  env.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
-  osc.connect(env).connect(getOutputNode(ctx));
-  osc.start(start);
-  osc.stop(start + 0.25);
+  const mix = ctx.createGain();
+  mix.gain.value = 1;
+  mix.connect(getOutputNode(ctx));
+
+  // Click — sharp bandpassed noise for "snap".
+  const click = ctx.createBufferSource();
+  click.buffer = noiseBuffer(ctx, 0.01);
+  const clickFilt = ctx.createBiquadFilter();
+  clickFilt.type = 'bandpass';
+  clickFilt.frequency.value = 3000;
+  clickFilt.Q.value = 1.5;
+  const clickEnv = ctx.createGain();
+  clickEnv.gain.setValueAtTime(0, start);
+  clickEnv.gain.linearRampToValueAtTime(0.4, start + 0.001);
+  clickEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.008);
+  click.connect(clickFilt).connect(clickEnv).connect(mix);
+  click.start(start);
+  click.stop(start + 0.015);
+
+  // Body — sine sweep from 180 Hz to 40 Hz.
+  const body = ctx.createOscillator();
+  body.type = 'sine';
+  body.frequency.setValueAtTime(180, start);
+  body.frequency.exponentialRampToValueAtTime(40, start + 0.1);
+  const bodyEnv = ctx.createGain();
+  bodyEnv.gain.setValueAtTime(0.0001, start);
+  bodyEnv.gain.exponentialRampToValueAtTime(0.85, start + 0.004);
+  bodyEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.25);
+  body.connect(bodyEnv).connect(mix);
+  body.start(start);
+  body.stop(start + 0.28);
 }
 
+// Snare: three layers — the pitched drumhead "body", the buzzing
+// "wires" underneath (highpassed noise), and a very brief high-shelf
+// crackle that gives the initial "smack". The crackle is what makes
+// the snare read as sharp rather than a fuzzy hiss.
 export function scheduleSnare(ctx: AudioContext, when: number): void {
   const start = Math.max(when, ctx.currentTime);
-  const noise = ctx.createBufferSource();
-  noise.buffer = noiseBuffer(ctx, 0.2);
+  const mix = ctx.createGain();
+  mix.gain.value = 1;
+  mix.connect(getOutputNode(ctx));
+
+  // Drumhead body — pitched triangle sweep.
+  const body = ctx.createOscillator();
+  body.type = 'triangle';
+  body.frequency.setValueAtTime(230, start);
+  body.frequency.exponentialRampToValueAtTime(140, start + 0.05);
+  const bodyEnv = ctx.createGain();
+  bodyEnv.gain.setValueAtTime(0.0001, start);
+  bodyEnv.gain.exponentialRampToValueAtTime(0.36, start + 0.003);
+  bodyEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.09);
+  body.connect(bodyEnv).connect(mix);
+  body.start(start);
+  body.stop(start + 0.1);
+
+  // Snare wires — highpassed noise.
+  const wires = ctx.createBufferSource();
+  wires.buffer = noiseBuffer(ctx, 0.2);
   const hp = ctx.createBiquadFilter();
   hp.type = 'highpass';
-  hp.frequency.value = 1200;
-  const noiseEnv = ctx.createGain();
-  noiseEnv.gain.setValueAtTime(0.0001, start);
-  noiseEnv.gain.exponentialRampToValueAtTime(0.55, start + 0.003);
-  noiseEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
-  noise.connect(hp).connect(noiseEnv).connect(getOutputNode(ctx));
-  noise.start(start);
-  noise.stop(start + 0.2);
-  const osc = ctx.createOscillator();
-  osc.type = 'triangle';
-  osc.frequency.setValueAtTime(220, start);
-  osc.frequency.exponentialRampToValueAtTime(140, start + 0.06);
-  const oscEnv = ctx.createGain();
-  oscEnv.gain.setValueAtTime(0.0001, start);
-  oscEnv.gain.exponentialRampToValueAtTime(0.35, start + 0.003);
-  oscEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.09);
-  osc.connect(oscEnv).connect(getOutputNode(ctx));
-  osc.start(start);
-  osc.stop(start + 0.1);
+  hp.frequency.value = 1500;
+  const wiresEnv = ctx.createGain();
+  wiresEnv.gain.setValueAtTime(0.0001, start);
+  wiresEnv.gain.exponentialRampToValueAtTime(0.5, start + 0.003);
+  wiresEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
+  wires.connect(hp).connect(wiresEnv).connect(mix);
+  wires.start(start);
+  wires.stop(start + 0.2);
+
+  // Initial smack — very brief high-shelf transient.
+  const crackle = ctx.createBufferSource();
+  crackle.buffer = noiseBuffer(ctx, 0.01);
+  const crackleFilt = ctx.createBiquadFilter();
+  crackleFilt.type = 'highpass';
+  crackleFilt.frequency.value = 4000;
+  const crackleEnv = ctx.createGain();
+  crackleEnv.gain.setValueAtTime(0, start);
+  crackleEnv.gain.linearRampToValueAtTime(0.25, start + 0.001);
+  crackleEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.01);
+  crackle.connect(crackleFilt).connect(crackleEnv).connect(mix);
+  crackle.start(start);
+  crackle.stop(start + 0.015);
 }
 
 export function scheduleHat(ctx: AudioContext, when: number): void {
@@ -283,15 +331,42 @@ export function scheduleClave(ctx: AudioContext, when: number): void {
   osc.stop(start + 0.05);
 }
 
-// Marimba: warm pitched mallet. Sine fundamental + softer harmonics with a
-// short exponential decay. Voiced via `freq` so the same synth covers any
-// scale degree the caller wants.
+// Marimba: warm pitched mallet. Sine partials at the inharmonic mode
+// ratios of a real marimba bar (~1 : 3.98 : 9.95), a soft mallet click
+// transient for the wood-on-bar attack, plus a quiet odd-harmonic
+// "color" partial to add body. Each partial decays at its own rate
+// (lower partials sustain, upper partials fade quickly).
 export function scheduleMarimba(ctx: AudioContext, when: number, freq: number): void {
   const start = Math.max(when, ctx.currentTime);
+  const mix = ctx.createGain();
+  mix.gain.value = 1;
+  mix.connect(getOutputNode(ctx));
+
+  // Mallet "tock" — lowpassed noise transient that disappears almost
+  // immediately. Without this the bar sounds like it's struck out of
+  // nowhere; with it you hear the mallet contact.
+  const noise = ctx.createBufferSource();
+  noise.buffer = noiseBuffer(ctx, 0.03);
+  const noiseFilt = ctx.createBiquadFilter();
+  noiseFilt.type = 'lowpass';
+  noiseFilt.frequency.value = 2200;
+  noiseFilt.Q.value = 1.2;
+  const noiseEnv = ctx.createGain();
+  noiseEnv.gain.setValueAtTime(0, start);
+  noiseEnv.gain.linearRampToValueAtTime(0.05, start + 0.002);
+  noiseEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.02);
+  noise.connect(noiseFilt).connect(noiseEnv).connect(mix);
+  noise.start(start);
+  noise.stop(start + 0.03);
+
+  // Bar partials. Marimba bars are usually undercut so the second mode
+  // tunes very close to 4× the fundamental and the third mode to ~10×.
+  // The extra 6× partial is a softer color tone that fills out the body.
   const partials: Array<[number, number, number]> = [
-    [1, 0.42, 0.7],
-    [2, 0.16, 0.45],
-    [4, 0.06, 0.28],
+    [1.0, 0.42, 0.7],
+    [3.98, 0.18, 0.45],
+    [9.95, 0.05, 0.22],
+    [6.0, 0.04, 0.3],
   ];
   for (const [ratio, gain, decay] of partials) {
     const osc = ctx.createOscillator();
@@ -301,7 +376,7 @@ export function scheduleMarimba(ctx: AudioContext, when: number, freq: number): 
     env.gain.setValueAtTime(0.0001, start);
     env.gain.exponentialRampToValueAtTime(gain, start + 0.003);
     env.gain.exponentialRampToValueAtTime(0.0001, start + decay);
-    osc.connect(env).connect(getOutputNode(ctx));
+    osc.connect(env).connect(mix);
     osc.start(start);
     osc.stop(start + decay + 0.02);
   }
@@ -480,6 +555,84 @@ export function schedulePiano(ctx: AudioContext, when: number, freq: number): vo
     osc.stop(start + decay + 0.02);
   }
   mix.connect(getOutputNode(ctx));
+}
+
+// Kalimba (thumb piano): clean sine partials with a soft pluck
+// transient. Lower partials sustain noticeably longer than higher ones,
+// giving the gentle "bonk-bonk" character of a thumb-plucked tine.
+export function scheduleKalimba(ctx: AudioContext, when: number, freq: number): void {
+  const start = Math.max(when, ctx.currentTime);
+  const mix = ctx.createGain();
+  mix.gain.value = 1;
+  mix.connect(getOutputNode(ctx));
+
+  // Soft pluck — short lowpassed noise transient.
+  const noise = ctx.createBufferSource();
+  noise.buffer = noiseBuffer(ctx, 0.015);
+  const noiseFilt = ctx.createBiquadFilter();
+  noiseFilt.type = 'lowpass';
+  noiseFilt.frequency.value = 4000;
+  const noiseEnv = ctx.createGain();
+  noiseEnv.gain.setValueAtTime(0, start);
+  noiseEnv.gain.linearRampToValueAtTime(0.04, start + 0.002);
+  noiseEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.015);
+  noise.connect(noiseFilt).connect(noiseEnv).connect(mix);
+  noise.start(start);
+  noise.stop(start + 0.02);
+
+  const partials: Array<[number, number, number]> = [
+    [1.0, 0.4, 0.9],
+    [2.0, 0.18, 0.5],
+    [3.0, 0.08, 0.3],
+    [4.0, 0.04, 0.2],
+  ];
+  for (const [ratio, gain, decay] of partials) {
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq * ratio, start);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, start);
+    env.gain.exponentialRampToValueAtTime(gain, start + 0.004);
+    env.gain.exponentialRampToValueAtTime(0.0001, start + decay);
+    osc.connect(env).connect(mix);
+    osc.start(start);
+    osc.stop(start + decay + 0.02);
+  }
+}
+
+// Steel pan: bright, tropical melodic percussion. The defining feature
+// is a 2nd-harmonic that's actually louder than the fundamental, plus
+// strong odd-mode color. A tiny per-partial detune is applied
+// deterministically per-call so the shimmer is consistent rather than
+// random-jitter (using ratio-based mod, not Math.random, keeps it stable).
+export function scheduleSteelPan(ctx: AudioContext, when: number, freq: number): void {
+  const start = Math.max(when, ctx.currentTime);
+  const mix = ctx.createGain();
+  mix.gain.value = 1;
+  mix.connect(getOutputNode(ctx));
+
+  const partials: Array<[number, number, number]> = [
+    [1.0, 0.2, 0.55],
+    [2.0, 0.32, 0.5],
+    [3.0, 0.1, 0.3],
+    [4.0, 0.14, 0.35],
+    [5.0, 0.06, 0.22],
+  ];
+  for (const [ratio, gain, decay] of partials) {
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    // Tiny deterministic detune based on the ratio so the partials
+    // shimmer slightly out of phase with each other.
+    const detune = 1 + (ratio % 0.013) * 0.002;
+    osc.frequency.setValueAtTime(freq * ratio * detune, start);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, start);
+    env.gain.exponentialRampToValueAtTime(gain, start + 0.004);
+    env.gain.exponentialRampToValueAtTime(0.0001, start + decay);
+    osc.connect(env).connect(mix);
+    osc.start(start);
+    osc.stop(start + decay + 0.02);
+  }
 }
 
 // Bell: additive synthesis with inharmonic partials chosen to suggest

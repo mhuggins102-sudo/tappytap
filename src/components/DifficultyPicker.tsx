@@ -12,6 +12,8 @@ import {
 const INSTRUMENTS: Array<{ id: Instrument; label: string }> = [
   { id: 'drums', label: 'Drums' },
   { id: 'marimba', label: 'Marimba' },
+  { id: 'kalimba', label: 'Kalimba' },
+  { id: 'steelPan', label: 'Steel pan' },
   { id: 'piano', label: 'Piano' },
   { id: 'rhodes', label: 'Electric piano' },
   { id: 'bell', label: 'Bell' },
