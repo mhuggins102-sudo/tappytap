@@ -615,11 +615,51 @@ button {
 }
 
 .timeline__label {
-  flex: 0 0 56px;
+  /* A bit wider than before to make room for the small play button on
+     the You row. Right-aligned so the label text + button sit flush
+     against the track they describe. */
+  flex: 0 0 72px;
   font-size: 11px;
   color: var(--fg-dim);
   text-transform: uppercase;
   letter-spacing: 0.1em;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.timeline__play {
+  appearance: none;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--fg-dim);
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+@media (hover: hover) {
+  .timeline__play:hover:not(:disabled) {
+    background: rgba(124, 92, 255, 0.18);
+    border-color: rgba(124, 92, 255, 0.6);
+    color: var(--fg);
+  }
+}
+
+.timeline__play:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.timeline__play:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .timeline__track {

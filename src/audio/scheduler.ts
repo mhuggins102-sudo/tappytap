@@ -287,12 +287,35 @@ export function schedulePattern(
 }
 
 /**
- * Play four quick hits of an instrument so the player hears it before
- * committing. Used by the settings dropdown — selecting a new
- * instrument triggers an audible sample of that voice's groove.
- * Routes through resetOutputNode so cycling quickly through choices
- * doesn't pile previews on top of each other.
+ * Play a fixed list of tap times back through the player's current
+ * instrument + groove. Used by the "Play You" button on the score
+ * screen so players can hear their own performance (either raw or
+ * tempo-corrected, depending on what the caller passes in).
+ *
+ * Resets the master output first so back-to-back presses don't stack
+ * playbacks on top of each other.
  */
+export async function playTapSequence(
+  taps: number[],
+  instrument: Instrument,
+  grooveIdx: number,
+): Promise<void> {
+  if (taps.length === 0) return;
+  try {
+    const eng = await ensureAudioEngine();
+    const ctx = eng.ctx;
+    resetOutputNode(ctx);
+    // Small lead-in so the very first scheduled note isn't truncated
+    // by an in-flight audio graph reconnection.
+    const leadIn = 0.1;
+    const start = ctx.currentTime + leadIn;
+    for (let i = 0; i < taps.length; i++) {
+      scheduleGrooveHit(ctx, start + taps[i], instrument, grooveIdx, i);
+    }
+  } catch {
+    // Audio context may not be available; swallow.
+  }
+}
 export async function previewInstrument(instrument: Instrument): Promise<void> {
   try {
     const eng = await ensureAudioEngine();

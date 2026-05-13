@@ -79,6 +79,7 @@ export function ScoreScreen({ state }: Props) {
           pattern={state.lastPattern}
           result={result}
           corrected={corrected}
+          grooveIdx={state.lastGrooveIdx ?? 0}
         />
       )}
 

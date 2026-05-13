@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Pattern, RoundResult, TapResult } from '../patterns/types';
+import { playTapSequence } from '../audio/scheduler';
+import { loadSettings } from '../lib/storage';
 
 interface Props {
   pattern: Pattern;
@@ -7,9 +9,12 @@ interface Props {
   /** When true, taps render at their tempo-corrected position. The
    *  Tempo subscore tile in ScoreScreen owns this state. */
   corrected: boolean;
+  /** Groove index the original round was played with; reused so the
+   *  playback sounds like what the player heard during the round. */
+  grooveIdx: number;
 }
 
-export function TimelineCompare({ pattern, result, corrected }: Props) {
+export function TimelineCompare({ pattern, result, corrected, grooveIdx }: Props) {
   const expected = pattern.onsets;
   const slope = result.tempoFactor || 1;
 
@@ -44,6 +49,19 @@ export function TimelineCompare({ pattern, result, corrected }: Props) {
     };
   }, [selectedTap]);
 
+  const onPlayYou = () => {
+    // Play the player's own taps at their actual times — or, when the
+    // Tempo toggle is on, at their tempo-corrected times so they can
+    // hear what their performance would sound like at the right pace.
+    const taps = result.taps
+      .map((t) => t.tapTime)
+      .filter((t): t is number => t !== null)
+      .map((t) => (corrected ? onTempo(t) : t));
+    const settings = loadSettings();
+    void playTapSequence(taps, settings.instrument, grooveIdx);
+  };
+  const hasTaps = tapTimes.length > 0;
+
   return (
     <>
       <div className="timeline">
@@ -60,7 +78,20 @@ export function TimelineCompare({ pattern, result, corrected }: Props) {
           </div>
         </div>
         <div className="timeline__row">
-          <span className="timeline__label">You</span>
+          <span className="timeline__label">
+            <button
+              type="button"
+              className="timeline__play"
+              onClick={onPlayYou}
+              disabled={!hasTaps}
+              aria-label={corrected ? 'Play your taps on-tempo' : 'Play your taps'}
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                <polygon points="2.5,1.5 9,5 2.5,8.5" fill="currentColor" />
+              </svg>
+            </button>
+            You
+          </span>
           <div
             className={`timeline__track timeline__track--actual${corrected ? ' is-corrected' : ''}`}
           >
