@@ -18,46 +18,36 @@ const OUT = resolve(__dirname, '..', 'public', 'apple-touch-icon.png');
 
 const W = 512;
 const H = 512;
-// Gradient background (top → bottom). Mirrors the SVG version.
-const BG_TOP = [28, 31, 47];   // #1c1f2f
-const BG_BOT = [11, 13, 18];   // #0b0d12
-// Dot colour gradient (left → right) for the row of dots.
-const DOT_LEFT = [88, 197, 255];  // #58c5ff
-const DOT_RIGHT = [123, 139, 255]; // #7b8bff
+// Solid dark background — matches the favicon.
+const BG = [11, 13, 18]; // #0b0d12
+// Two circles, purple and green, matching favicon.svg.
 const CIRCLES = [
-  { cx: 112, cy: 256, r: 40, t: 0.0 },
-  { cx: 208, cy: 256, r: 40, t: 0.33 },
-  { cx: 304, cy: 256, r: 52, t: 0.66 },
-  { cx: 408, cy: 256, r: 40, t: 1.0 },
+  { cx: 176, cy: 256, r: 64, color: [124, 92, 255] }, // #7c5cff
+  { cx: 336, cy: 256, r: 64, color: [25, 211, 162] }, // #19d3a2
 ];
 
 function lerp(a, b, t) {
   return Math.round(a + (b - a) * t);
 }
-function lerpColor(a, b, t) {
-  return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
-}
 
 // Rasterize into a raw RGB buffer (no alpha).
 const pixels = Buffer.alloc(W * H * 3);
 for (let y = 0; y < H; y++) {
-  const bg = lerpColor(BG_TOP, BG_BOT, y / (H - 1));
   for (let x = 0; x < W; x++) {
-    let r = bg[0], g = bg[1], b = bg[2];
+    let r = BG[0], g = BG[1], b = BG[2];
     for (const c of CIRCLES) {
       const dx = x - c.cx;
       const dy = y - c.cy;
       const d = Math.sqrt(dx * dx + dy * dy);
       if (d <= c.r + 1) {
-        const dotColor = lerpColor(DOT_LEFT, DOT_RIGHT, c.t);
         if (d <= c.r - 0.5) {
-          r = dotColor[0]; g = dotColor[1]; b = dotColor[2];
+          r = c.color[0]; g = c.color[1]; b = c.color[2];
         } else {
-          // Simple one-pixel anti-aliased edge.
+          // One-pixel anti-aliased edge between background and circle colour.
           const edge = Math.max(0, Math.min(1, c.r + 0.5 - d));
-          r = lerp(r, dotColor[0], edge);
-          g = lerp(g, dotColor[1], edge);
-          b = lerp(b, dotColor[2], edge);
+          r = lerp(r, c.color[0], edge);
+          g = lerp(g, c.color[1], edge);
+          b = lerp(b, c.color[2], edge);
         }
       }
     }
