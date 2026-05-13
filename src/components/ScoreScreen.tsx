@@ -160,6 +160,10 @@ const RHYTHM_INFO =
   'adjusting for whether you were overall fast or slow. Lower is better; ' +
   'a perfect 100 means every tap landed right where you expected.';
 
+const RHYTHM_INFO_TAP_HINT =
+  'Tap any colored dot in the timeline above to see how far off that ' +
+  'individual tap was.';
+
 const TEMPO_INFO_BASE =
   'How close your overall pace was to the target. If you were ' +
   'consistently fast or slow, the label shows by how much. If your pace ' +
@@ -219,13 +223,16 @@ function SubScores({ result, tempoToggleable, corrected, onToggleCorrected }: Su
             {openInfo === 'rhythm' ? 'Rhythm' : 'Tempo'}
           </strong>
           {openInfo === 'rhythm' ? (
-            <span>{RHYTHM_INFO}</span>
+            <>
+              <span>{RHYTHM_INFO}</span>
+              {/* Separate, slightly-bolder line so the actionable hint
+                  doesn't blend into the explanatory paragraph above it. */}
+              <span className="subscores__popover-hint">{RHYTHM_INFO_TAP_HINT}</span>
+            </>
           ) : (
             <>
               <span>{tempoInfo}</span>
               {tempoToggleable && (
-                // Separate, slightly-bolder line so the actionable hint
-                // doesn't blend into the explanatory paragraph above it.
                 <span className="subscores__popover-hint">{TEMPO_INFO_TAP_HINT}</span>
               )}
             </>
