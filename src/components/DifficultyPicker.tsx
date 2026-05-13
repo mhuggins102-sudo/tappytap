@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { startRound, goToDailyScreen, goToArchiveScreen } from '../game/gameLoop';
+import { previewInstrument } from '../audio/scheduler';
 import {
   clearHighScores,
   loadHighScores,
@@ -64,6 +65,9 @@ export function DifficultyPicker() {
   const onChangeInstrument = (next: Instrument) => {
     setInstrument(next);
     saveSettings({ instrument: next });
+    // Play a quick 4-hit phrase so the player hears the new voice
+    // without leaving the settings panel.
+    void previewInstrument(next);
   };
 
   const onToggleLive = () => {
