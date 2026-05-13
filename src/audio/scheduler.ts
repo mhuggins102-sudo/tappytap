@@ -1,4 +1,5 @@
 import type { Pattern } from '../patterns/types';
+import { ensureAudioEngine, resetOutputNode } from './audioContext';
 import {
   scheduleBeep,
   scheduleBell,
@@ -283,6 +284,36 @@ export function schedulePattern(
     }
   }
   return startTime + pattern.durationSec;
+}
+
+/**
+ * Play four quick hits of an instrument so the player hears it before
+ * committing. Used by the settings dropdown — selecting a new
+ * instrument triggers an audible sample of that voice's groove.
+ * Routes through resetOutputNode so cycling quickly through choices
+ * doesn't pile previews on top of each other.
+ */
+export async function previewInstrument(instrument: Instrument): Promise<void> {
+  try {
+    const eng = await ensureAudioEngine();
+    const ctx = eng.ctx;
+    // Mute any prior preview audio so back-to-back selections don't
+    // smear together. Safe to do here because the settings panel is
+    // only ever open outside an active round.
+    resetOutputNode(ctx);
+    const grooveIdx = pickGrooveIndex(instrument);
+    const startTime = ctx.currentTime + 0.05;
+    // 4 onsets ~180ms apart so the user hears the timbre's attack and
+    // a bit of its tail without holding the dropdown open too long.
+    const dt = 0.18;
+    for (let i = 0; i < 4; i++) {
+      scheduleGrooveHit(ctx, startTime + i * dt, instrument, grooveIdx, i);
+    }
+  } catch {
+    // Audio context may not be available yet (e.g., before the user
+    // has made any gesture). Silently swallow — the selection still
+    // saves; the player just won't hear a preview that one time.
+  }
 }
 
 const COUNTDOWN_FREQS = [659.25, 523.25, 392.0, 1046.5];

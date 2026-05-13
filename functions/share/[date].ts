@@ -15,6 +15,34 @@
 
 import { isScore, isValidDate, type PagesFunction } from '../_shared';
 
+// Replicate the difficulty-from-date math from src/patterns/daily.ts +
+// src/lib/rng.ts so the share preview's difficulty label matches what
+// the player actually faced. Keep these in sync if either file changes.
+function hashString(s: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function dailyDifficultyFor(dateStr: string): 'medium' | 'hard' {
+  const rng = mulberry32(hashString(`tappytap:difficulty:${dateStr}`));
+  return rng() < 0.5 ? 'medium' : 'hard';
+}
+
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) =>
     c === '&' ? '&amp;'
@@ -51,9 +79,15 @@ export const onRequestGet: PagesFunction = async ({ request, params }) => {
   const target = `/?d=${encodeURIComponent(date)}`;
 
   const hasScore = total !== null && isScore(total);
+  const difficulty = dailyDifficultyFor(date);
+  const difficultyLabel = difficulty[0].toUpperCase() + difficulty.slice(1);
+  // Pack the difficulty into the title alongside the score so it shows
+  // up even when the link-preview client renders only the title
+  // (iMessage sometimes hides the description). Rhythm / Tempo / date
+  // live in the description as the fuller readout.
   const title = hasScore
-    ? `I scored ${Math.round(total)} on TappyTap`
-    : 'TappyTap daily challenge';
+    ? `I scored ${Math.round(total)} on TappyTap (${difficultyLabel})`
+    : `TappyTap daily challenge (${difficultyLabel})`;
   const desc =
     hasScore && rhythm !== null && tempo !== null && isScore(rhythm) && isScore(tempo)
       ? `Rhythm ${Math.round(rhythm)} · Tempo ${Math.round(tempo)} · ${date}`
