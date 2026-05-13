@@ -50,13 +50,15 @@ export function TimelineCompare({ pattern, result, corrected, grooveIdx }: Props
   }, [selectedTap]);
 
   const onPlayYou = () => {
-    // Play the player's own taps at their actual times — or, when the
-    // Tempo toggle is on, at their tempo-corrected times so they can
-    // hear what their performance would sound like at the right pace.
+    // Always play back the player's RAW tap intervals — the actual
+    // time gaps between their taps. Tempo correction is a visual
+    // transform of where the dots sit on the track; applying it to
+    // audio would change the spacing between consecutive notes
+    // (compressing slow-play, stretching fast-play), and the player
+    // wants each tap to keep the duration they actually played it at.
     const taps = result.taps
       .map((t) => t.tapTime)
-      .filter((t): t is number => t !== null)
-      .map((t) => (corrected ? onTempo(t) : t));
+      .filter((t): t is number => t !== null);
     const settings = loadSettings();
     void playTapSequence(taps, settings.instrument, grooveIdx);
   };
@@ -84,7 +86,7 @@ export function TimelineCompare({ pattern, result, corrected, grooveIdx }: Props
               className="timeline__play"
               onClick={onPlayYou}
               disabled={!hasTaps}
-              aria-label={corrected ? 'Play your taps on-tempo' : 'Play your taps'}
+              aria-label="Play your taps"
             >
               <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
                 <polygon points="2.5,1.5 9,5 2.5,8.5" fill="currentColor" />

@@ -611,14 +611,17 @@ button {
 .timeline__row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  /* Wider gap between the label and its track so the text + play
+     button don't crowd the dot row — balances the empty space inside
+     the label column on the left side. */
+  gap: 16px;
 }
 
 .timeline__label {
-  /* A bit wider than before to make room for the small play button on
-     the You row. Right-aligned so the label text + button sit flush
-     against the track they describe. */
-  flex: 0 0 72px;
+  /* Tightened from 72 to 60 so right-aligned text + button sit
+     closer to the dot row, with the leftover gap (~16 px) now living
+     between text and track instead of as dead space on the left. */
+  flex: 0 0 60px;
   font-size: 11px;
   color: var(--fg-dim);
   text-transform: uppercase;
