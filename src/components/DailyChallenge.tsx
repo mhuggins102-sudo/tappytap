@@ -71,7 +71,7 @@ export function DailyChallenge({ state }: Props) {
                 type="button"
                 onClick={() => void startDailyRound(dateStr)}
               >
-                Try again
+                Retry
               </button>
             )}
             <button className="btn" type="button" onClick={backToList}>
