@@ -644,8 +644,9 @@ button {
 }
 
 .timeline__track--actual.is-corrected {
+  /* Tint only — keep the existing neutral border so the bar doesn't
+     compete visually with the Tempo subscore tile's purple outline. */
   background: rgba(124, 92, 255, 0.18);
-  border-color: rgba(124, 92, 255, 0.28);
 }
 
 .timeline-dot {
