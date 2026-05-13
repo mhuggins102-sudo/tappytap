@@ -15,37 +15,28 @@ const OUT = resolve(__dirname, '..', 'public', 'og-image.png');
 
 const W = 1200;
 const H = 630;
-const BG_TOP = [28, 31, 47];
-const BG_BOT = [11, 13, 18];
-const DOT_LEFT = [88, 197, 255];
-const DOT_RIGHT = [123, 139, 255];
-// Five dots centered horizontally and vertically — slightly larger
-// "anchor" in the middle to give the row a visual focal point.
+// Solid dark background and two big circles (purple + green) — same
+// design as the favicon / apple-touch-icon, sized for landscape.
+const BG = [11, 13, 18]; // #0b0d12
 const CIRCLES = [
-  { cx: 380, cy: 315, r: 28, t: 0.0 },
-  { cx: 480, cy: 315, r: 28, t: 0.25 },
-  { cx: 600, cy: 315, r: 42, t: 0.5 },
-  { cx: 720, cy: 315, r: 28, t: 0.75 },
-  { cx: 820, cy: 315, r: 28, t: 1.0 },
+  { cx: 520, cy: 315, r: 80, color: [124, 92, 255] }, // #7c5cff
+  { cx: 680, cy: 315, r: 80, color: [25, 211, 162] }, // #19d3a2
 ];
 
 function lerp(a, b, t) { return Math.round(a + (b - a) * t); }
-function lerpColor(a, b, t) { return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)]; }
 
 const pixels = Buffer.alloc(W * H * 3);
 for (let y = 0; y < H; y++) {
-  const bg = lerpColor(BG_TOP, BG_BOT, y / (H - 1));
   for (let x = 0; x < W; x++) {
-    let r = bg[0], g = bg[1], b = bg[2];
+    let r = BG[0], g = BG[1], b = BG[2];
     for (const c of CIRCLES) {
       const d = Math.sqrt((x - c.cx) ** 2 + (y - c.cy) ** 2);
       if (d <= c.r + 1) {
-        const dc = lerpColor(DOT_LEFT, DOT_RIGHT, c.t);
         if (d <= c.r - 0.5) {
-          r = dc[0]; g = dc[1]; b = dc[2];
+          r = c.color[0]; g = c.color[1]; b = c.color[2];
         } else {
           const e = Math.max(0, Math.min(1, c.r + 0.5 - d));
-          r = lerp(r, dc[0], e); g = lerp(g, dc[1], e); b = lerp(b, dc[2], e);
+          r = lerp(r, c.color[0], e); g = lerp(g, c.color[1], e); b = lerp(b, c.color[2], e);
         }
       }
     }
