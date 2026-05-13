@@ -100,13 +100,13 @@ export function ScoreScreen({ state }: Props) {
         {!state.isDailyChallenge && (
           <>
             <button className="btn btn--primary" type="button" onClick={tryAgain}>
-              Replay
+              Retry
             </button>
             <button className="btn" type="button" onClick={playAgain}>
-              New beat
+              New
             </button>
             <button className="btn" type="button" onClick={goToPicker}>
-              Change level
+              Back
             </button>
           </>
         )}
@@ -114,7 +114,7 @@ export function ScoreScreen({ state }: Props) {
           <>
             {canRetryDaily && (
               <button className="btn btn--primary" type="button" onClick={tryAgain}>
-                Try again
+                Retry
               </button>
             )}
             <button className="btn" type="button" onClick={backFromDaily}>
