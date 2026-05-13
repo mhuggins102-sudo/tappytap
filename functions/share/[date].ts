@@ -81,17 +81,24 @@ export const onRequestGet: PagesFunction = async ({ request, params }) => {
   const hasScore = total !== null && isScore(total);
   const difficulty = dailyDifficultyFor(date);
   const difficultyLabel = difficulty[0].toUpperCase() + difficulty.slice(1);
-  // Pack the difficulty into the title alongside the score so it shows
-  // up even when the link-preview client renders only the title
-  // (iMessage sometimes hides the description). Rhythm / Tempo / date
-  // live in the description as the fuller readout.
-  const title = hasScore
-    ? `I scored ${Math.round(total)} on TappyTap (${difficultyLabel})`
-    : `TappyTap daily challenge (${difficultyLabel})`;
-  const desc =
+  // iMessage's iOS link-preview card renders ONLY the title (plus the
+  // image and domain). It silently drops the og:description, so any
+  // info we want the recipient to actually see has to live in the
+  // title. iMessage wraps long titles to multiple lines, so we can
+  // afford to pack score + difficulty + subscores + date in here.
+  const subscoreSegment =
     hasScore && rhythm !== null && tempo !== null && isScore(rhythm) && isScore(tempo)
-      ? `Rhythm ${Math.round(rhythm)} · Tempo ${Math.round(tempo)} · ${date}`
-      : `Listen, then tap the pattern back · ${date}`;
+      ? ` · Rhythm ${Math.round(rhythm)} · Tempo ${Math.round(tempo)}`
+      : '';
+  const title = hasScore
+    ? `I scored ${Math.round(total)} on TappyTap (${difficultyLabel})${subscoreSegment} · ${date}`
+    : `TappyTap daily challenge (${difficultyLabel}) · ${date}`;
+  // Description stays informative for clients that DO show it (Mac
+  // iMessage, Slack, Discord, web previews) — keeps the title-only
+  // version of the same data available to crawlers as a second source.
+  const desc = hasScore
+    ? `${difficultyLabel} daily challenge · ${date}`
+    : `Listen, then tap the pattern back · ${date}`;
 
   const html = `<!doctype html>
 <html lang="en">
