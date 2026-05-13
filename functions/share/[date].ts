@@ -44,12 +44,19 @@ function dailyDifficultyFor(dateStr: string): 'medium' | 'hard' {
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) =>
+  // We also encode newlines as numeric character references so they
+  // survive HTML attribute parsing (browsers normalise raw whitespace
+  // inside attribute values to a single space). Some link-preview
+  // clients honour the entity-encoded newline and render the title on
+  // two lines; others still collapse it, which is fine because the
+  // sentence break reads naturally either way.
+  return s.replace(/[&<>"'\n]/g, (c) =>
     c === '&' ? '&amp;'
       : c === '<' ? '&lt;'
         : c === '>' ? '&gt;'
           : c === '"' ? '&quot;'
-            : '&#39;',
+            : c === '\n' ? '&#10;'
+              : '&#39;',
   );
 }
 
@@ -87,24 +94,20 @@ export const onRequestGet: PagesFunction = async ({ request, params }) => {
   const hasScore = total !== null && isScore(total);
   const difficulty = dailyDifficultyFor(date);
   const difficultyLabel = difficulty[0].toUpperCase() + difficulty.slice(1);
-  // iMessage's iOS link-preview card renders ONLY the title (plus the
-  // image and domain). It silently drops the og:description, so any
-  // info we want the recipient to actually see has to live in the
-  // title. iMessage wraps long titles to multiple lines, so we can
-  // afford to pack score + difficulty + subscores + date in here.
-  const subscoreSegment =
-    hasScore && rhythm !== null && tempo !== null && isScore(rhythm) && isScore(tempo)
-      ? ` · Rhythm ${Math.round(rhythm)} · Tempo ${Math.round(tempo)}`
-      : '';
+  // The dynamic /share-image PNG already bakes the full readout
+  // (score, rhythm, tempo, difficulty, date) into the picture itself,
+  // so the title can lean into a short friendly call-to-action
+  // instead of duplicating the numbers. A literal newline separates
+  // the two sentences — see escapeHtml for how that's preserved.
   const title = hasScore
-    ? `I scored ${Math.round(total)} on TappyTap (${difficultyLabel})${subscoreSegment} · ${date}`
-    : `TappyTap daily challenge (${difficultyLabel}) · ${date}`;
-  // Description stays informative for clients that DO show it (Mac
-  // iMessage, Slack, Discord, web previews) — keeps the title-only
-  // version of the same data available to crawlers as a second source.
-  const desc = hasScore
-    ? `${difficultyLabel} daily challenge · ${date}`
-    : `Listen, then tap the pattern back · ${date}`;
+    ? `I scored ${Math.round(total)} on TappyTap (${difficultyLabel}).\nCan you beat my score?`
+    : `TappyTap daily challenge (${difficultyLabel}).\nThink you can crack it?`;
+  // Description stays informative for clients that DO show it
+  // (Mac iMessage, Slack, Discord, search crawlers).
+  const desc =
+    hasScore && rhythm !== null && tempo !== null && isScore(rhythm) && isScore(tempo)
+      ? `Rhythm ${Math.round(rhythm)} · Tempo ${Math.round(tempo)} · ${difficultyLabel} · ${date}`
+      : `${difficultyLabel} daily challenge · ${date}`;
 
   const html = `<!doctype html>
 <html lang="en">
