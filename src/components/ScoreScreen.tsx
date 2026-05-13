@@ -166,9 +166,9 @@ const RHYTHM_INFO_TAP_HINT =
 
 const TEMPO_INFO_BASE =
   'How close your overall pace was to the target. If you were ' +
-  'consistently fast or slow, the label shows by how much. If your pace ' +
-  'wobbled around the target without settling, it shows how unsteady you ' +
-  'were as a percentage.';
+  'consistently fast or slow, the label shows by how much; otherwise ' +
+  'it just says "On tempo". Wobble in your individual taps (without a ' +
+  'consistent lean) shows up in your Rhythm score, not here.';
 
 const TEMPO_INFO_TAP_HINT =
   'Tap the Tempo tile above to switch the timeline between raw timing ' +
@@ -314,12 +314,12 @@ function JudgmentSummary({ result }: { result: RoundResult }) {
 }
 
 function tempoText(r: RoundResult): string {
-  if (r.tempoDirection === 'on') return 'On tempo';
-  if (r.tempoDirection === 'mixed') {
-    // Floor at 1 % so the label doesn't collapse to "0% unsteady"
-    // when there's measurable wobble that rounds down.
-    return `~${Math.max(1, r.tempoUnsteadyPct)}% unsteady`;
-  }
+  // 'mixed' (wobble without a slope lean) collapses into "On tempo"
+  // because tempo measures pace — and the pace is fine. The wobble's
+  // penalty already lives in the rhythm score via per-tap residuals,
+  // so reporting it here too would imply a tempo cost that doesn't
+  // exist.
+  if (r.tempoDirection === 'on' || r.tempoDirection === 'mixed') return 'On tempo';
   return `~${r.tempoPct}% ${r.tempoDirection}`;
 }
 
