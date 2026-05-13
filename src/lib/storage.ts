@@ -205,6 +205,8 @@ export type Instrument =
   | 'piano'
   | 'rhodes'
   | 'bell'
+  | 'kalimba'
+  | 'steelPan'
   | 'kazoo'
   | 'bikeHorn'
   | 'whoopee';
