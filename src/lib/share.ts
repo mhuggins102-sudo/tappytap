@@ -15,20 +15,22 @@ export async function shareDailyResult(
   dateStr: string,
   result: RoundResult,
 ): Promise<ShareOutcome> {
-  const text =
-    `I scored ${result.totalScore} on TappyTap ${dateStr} ` +
-    `(${result.rhythmScore}r / ${result.tempoScore}t)`;
-  // Deep-link to the specific day so opening the shared link drops the
-  // recipient straight into that challenge instead of the picker screen.
-  const url =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/?d=${encodeURIComponent(dateStr)}`
-      : '';
+  // We share *only* the URL (no `text`, no `title`). iMessage uses its
+  // large preview card only when the message body is a bare URL — any
+  // surrounding text bumps it to the compact card. The shared URL hits
+  // a Pages Function (/share/:date) which returns HTML with the score
+  // baked into OG meta tags, so the large preview shows "I scored 87
+  // on TappyTap" in the title. A human who taps the link gets bounced
+  // straight to /?d=DATE by the function's redirect, which the SPA's
+  // deep-link handler picks up.
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const url = origin
+    ? `${origin}/share/${encodeURIComponent(dateStr)}` +
+      `?s=${result.totalScore}&r=${result.rhythmScore}&t=${result.tempoScore}`
+    : '';
 
-  const shareData: ShareData = { title: 'TappyTap', text, url };
+  const shareData: ShareData = { url };
 
-  // Web Share API: present on iOS Safari and most mobile browsers. The OS
-  // handles whatever the user picks (Messages, Mail, etc.).
   if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
     const canShare =
       typeof navigator.canShare !== 'function' || navigator.canShare(shareData);
@@ -37,9 +39,6 @@ export async function shareDailyResult(
         await navigator.share(shareData);
         return 'shared';
       } catch (err) {
-        // AbortError = user closed the share sheet; anything else is a real
-        // failure. Either way we don't fall through to clipboard so the
-        // user isn't surprised by silent clipboard writes after dismissal.
         if (err && (err as { name?: string }).name === 'AbortError') {
           return 'cancelled';
         }
@@ -48,7 +47,12 @@ export async function shareDailyResult(
     }
   }
 
-  // Clipboard fallback.
+  // Clipboard fallback for browsers without Web Share API (mostly
+  // desktop). Include a human-readable summary alongside the URL so the
+  // pasted message reads like a real message instead of a bare link.
+  const text =
+    `I scored ${result.totalScore} on TappyTap ${dateStr} ` +
+    `(${result.rhythmScore}r / ${result.tempoScore}t)`;
   try {
     await navigator.clipboard.writeText(`${text}\n${url}`);
     return 'copied';
