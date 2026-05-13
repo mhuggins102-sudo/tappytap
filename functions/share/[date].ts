@@ -72,7 +72,13 @@ export const onRequestGet: PagesFunction = async ({ request, params }) => {
   const tempo = asNumber(url.searchParams.get('t'));
 
   const origin = `${url.protocol}//${url.host}`;
-  const ogImage = `${origin}/og-image.png`;
+  // Dynamic share image with the score baked into the picture itself,
+  // so iMessage's preview card (which renders the image prominently
+  // and hides the description) puts the score in front of the reader
+  // regardless of how much text the client chooses to show. The image
+  // URL carries the same querystring so the renderer has every number
+  // it needs.
+  const ogImage = `${origin}/share-image/${encodeURIComponent(date)}${url.search}`;
   // Where the human lands when they tap the share link. The existing
   // ?d= deep-link handler in main.tsx picks this up and drops the
   // recipient straight into the daily challenge for that date.
