@@ -61,7 +61,9 @@ export function TimelineCompare({ pattern, result, corrected }: Props) {
         </div>
         <div className="timeline__row">
           <span className="timeline__label">You</span>
-          <div className="timeline__track timeline__track--actual">
+          <div
+            className={`timeline__track timeline__track--actual${corrected ? ' is-corrected' : ''}`}
+          >
             {result.taps.map((tap, i) => {
               if (tap.tapTime === null) return null;
               const pos = corrected ? onTempo(tap.tapTime) : tap.tapTime;
