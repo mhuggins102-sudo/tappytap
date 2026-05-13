@@ -167,7 +167,7 @@ const TEMPO_INFO_BASE =
   'were as a percentage.';
 
 const TEMPO_INFO_TAP_HINT =
-  ' Tap the Tempo tile above to switch the timeline between raw timing ' +
+  'Tap the Tempo tile above to switch the timeline between raw timing ' +
   'and tempo-corrected timing.';
 
 interface SubScoresProps {
@@ -193,8 +193,7 @@ function SubScores({ result, tempoToggleable, corrected, onToggleCorrected }: Su
   const toggleInfo = (k: 'rhythm' | 'tempo') => () =>
     setOpenInfo((prev) => (prev === k ? null : k));
 
-  const tempoInfo =
-    TEMPO_INFO_BASE + (tempoToggleable ? TEMPO_INFO_TAP_HINT : '');
+  const tempoInfo = TEMPO_INFO_BASE;
 
   return (
     <div className="subscores" ref={ref}>
@@ -219,7 +218,18 @@ function SubScores({ result, tempoToggleable, corrected, onToggleCorrected }: Su
           <strong className="subscores__popover-title">
             {openInfo === 'rhythm' ? 'Rhythm' : 'Tempo'}
           </strong>
-          <span>{openInfo === 'rhythm' ? RHYTHM_INFO : tempoInfo}</span>
+          {openInfo === 'rhythm' ? (
+            <span>{RHYTHM_INFO}</span>
+          ) : (
+            <>
+              <span>{tempoInfo}</span>
+              {tempoToggleable && (
+                // Separate, slightly-bolder line so the actionable hint
+                // doesn't blend into the explanatory paragraph above it.
+                <span className="subscores__popover-hint">{TEMPO_INFO_TAP_HINT}</span>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>

@@ -636,7 +636,16 @@ button {
 }
 
 .timeline__track--actual {
-  background: rgba(124, 92, 255, 0.06);
+  /* Matches the Pattern bar in the default raw-timing view, so the two
+     rows read as a neutral comparison until the player taps Tempo to
+     turn on the on-tempo view — at which point the actual track tints
+     purple to mirror the highlighted Tempo subscore tile. */
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.timeline__track--actual.is-corrected {
+  background: rgba(124, 92, 255, 0.18);
+  border-color: rgba(124, 92, 255, 0.28);
 }
 
 .timeline-dot {
@@ -655,12 +664,6 @@ button {
 .timeline-dot--good { background: var(--good); }
 .timeline-dot--ok { background: var(--ok); }
 .timeline-dot--miss { background: var(--miss); opacity: 0.7; }
-
-.timeline__track--corrected {
-  background: rgba(255, 255, 255, 0.03);
-  height: 14px;
-  border-radius: 7px;
-}
 
 .timeline-dot--animated {
   transition: left 1125ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -914,6 +917,13 @@ button {
   text-align: left;
   z-index: 10;
   box-shadow: var(--shadow);
+}
+
+.subscores__popover-hint {
+  display: block;
+  margin-top: 10px;
+  font-weight: 600;
+  color: var(--fg);
 }
 
 .subscores__popover-title {
