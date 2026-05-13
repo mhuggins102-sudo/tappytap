@@ -283,6 +283,16 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
     ? tempoStatistics(expectedOnsets, taps, matchedCount, SCORE_PENALTY_CAP_MS)
     : { meanAbsMsDev: 0, meanMsDev: 0 };
   const tempoMsDev = tStats.meanAbsMsDev;
+  // Express the same wobble as a percentage of the pattern's mean
+  // inter-onset interval, so the "unsteady" reading reads on the same
+  // scale as "% fast" / "% slow". A pattern with 500 ms IOIs and 50 ms
+  // average wobble shows as 10% unsteady.
+  const meanIoiMs =
+    expectedCount >= 2
+      ? (expectedOnsets[expectedCount - 1] / (expectedCount - 1)) * 1000
+      : 0;
+  const tempoUnsteadyPct =
+    meanIoiMs > 0 ? Math.round((tempoMsDev / meanIoiMs) * 100) : 0;
   // Direction:
   //   • If slope is clearly off the target (≥ 0.5%), it's the obvious story —
   //     direction is 'fast' or 'slow' from the slope sign.
@@ -326,6 +336,7 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
     tempoScore,
     tempoPct,
     tempoMsDev,
+    tempoUnsteadyPct,
     tempoDirection,
     completenessPct: Math.round(completeness * 100),
     meanAbsErrorMs,

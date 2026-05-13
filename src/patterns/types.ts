@@ -28,8 +28,10 @@ export interface RoundResult {
   tempoScore: number;
   /** Percent the player's slope deviated from 1.0 — the magnitude shown with the fast/slow label. */
   tempoPct: number;
-  /** Average absolute beat-to-beat IOI deviation in milliseconds. Surfaced as the "ms unsteady" magnitude when tempoDirection is 'mixed'. */
+  /** Average absolute beat-to-beat IOI deviation in milliseconds. Kept for diagnostics; the user-facing 'unsteady' label now uses tempoUnsteadyPct. */
   tempoMsDev: number;
+  /** Same wobble expressed as a percentage of the pattern's mean inter-onset interval — the value shown alongside the 'unsteady' label. */
+  tempoUnsteadyPct: number;
   /** Whether the deviation has a dominant direction; 'mixed' when it doesn't. */
   tempoDirection: 'fast' | 'slow' | 'mixed' | 'on';
   completenessPct: number;

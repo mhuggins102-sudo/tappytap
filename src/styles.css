@@ -709,11 +709,6 @@ button {
   font-size: 11px;
 }
 
-.timeline__reveal {
-  margin-bottom: 4px;
-  align-self: center;
-}
-
 .practice {
   display: flex;
   flex-direction: column;
@@ -808,6 +803,14 @@ button {
   position: relative;
 }
 
+/* Wrapper exists so the per-tile "i" info button can be a sibling of
+   the tile itself — otherwise a clickable tile would have nested
+   buttons. Position: relative anchors the absolutely-placed "i". */
+.subscore-wrapper {
+  position: relative;
+  display: block;
+}
+
 .subscore {
   position: relative;
   background: var(--bg-elev);
@@ -818,6 +821,32 @@ button {
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  width: 100%;
+  /* When rendered as a <button>, strip the default button styling so
+     the tile looks identical to its non-interactive twin. */
+  font: inherit;
+  color: inherit;
+  text-align: center;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.subscore--clickable {
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .subscore--clickable:hover {
+    background: #1b2030;
+    border-color: rgba(255, 255, 255, 0.16);
+  }
+}
+
+/* The Tempo tile lights up when the timeline is showing the
+   tempo-corrected view, so the player can see at a glance which mode
+   they're in. */
+.subscore-wrapper--active .subscore {
+  background: linear-gradient(135deg, rgba(124, 92, 255, 0.18), rgba(124, 92, 255, 0.06));
+  border-color: rgba(124, 92, 255, 0.55);
 }
 
 .subscore__value {

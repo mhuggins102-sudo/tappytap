@@ -16,6 +16,10 @@ export function ScoreScreen({ state }: Props) {
   const result = state.lastResult;
   const [bestScore, setBestScore] = useState<number | null>(null);
   const [shareLabel, setShareLabel] = useState('Share');
+  // "Show on-tempo timing" toggle for the TimelineCompare. Lives here so
+  // the Tempo subscore tile (rendered separately, in SubScores below)
+  // can flip it — no separate toggle button needed above the timeline.
+  const [corrected, setCorrected] = useState(false);
 
   useEffect(() => {
     if (state.isDailyChallenge || state.isPractice) {
@@ -34,6 +38,10 @@ export function ScoreScreen({ state }: Props) {
       </div>
     );
   }
+
+  // Only enable the toggle when the slope is meaningfully off-target —
+  // otherwise the "raw" and "on-tempo" views look identical.
+  const tempoToggleable = Math.abs((result.tempoFactor ?? 1) - 1) > 0.01;
 
   const isToday = state.dailyDateStr === todayUtcDateString();
   // Re-read the saved attempt count so we know whether the player has a
@@ -66,7 +74,13 @@ export function ScoreScreen({ state }: Props) {
 
   return (
     <div className="screen screen--score">
-      {state.lastPattern && <TimelineCompare pattern={state.lastPattern} result={result} />}
+      {state.lastPattern && (
+        <TimelineCompare
+          pattern={state.lastPattern}
+          result={result}
+          corrected={corrected}
+        />
+      )}
 
       <div className="score-headline">
         <div className="score-headline__number">{result.totalScore}</div>
@@ -88,7 +102,12 @@ export function ScoreScreen({ state }: Props) {
         )}
       </div>
 
-      <SubScores result={result} />
+      <SubScores
+        result={result}
+        tempoToggleable={tempoToggleable}
+        corrected={corrected}
+        onToggleCorrected={() => setCorrected((c) => !c)}
+      />
 
       <JudgmentSummary result={result} />
 
@@ -132,15 +151,34 @@ export function ScoreScreen({ state }: Props) {
   );
 }
 
-const SUBSCORE_INFO = {
-  rhythm:
-    "How tight your spacing was around your own pace. We fit a best-fit line through your taps (one or two way-off taps count less, so they don't pull the line) and measure how far each tap fell from it. Sloppy or missed taps lower this; a steady (even if wrong-speed) player keeps rhythm high.",
-  tempo:
-    "How close your overall pace was to the target. The slope of the best-fit line through your taps is compared to the target slope of 1. Each percent off costs ~4 points (5% off ≈ 80, 10% ≈ 60, 25% ≈ 0). Mid-pattern wobble around an on-target average gets the 'unsteady' label rather than dragging the score.",
-};
+// Plain-English info copy. No mention of slope fits, IOIs, or
+// outlier weighting — players just want to know what the score means
+// and what the number under it represents.
+const RHYTHM_INFO =
+  'How precisely you tapped relative to your own pace. The number below ' +
+  'is roughly how many milliseconds, on average, each tap was off — after ' +
+  'adjusting for whether you were overall fast or slow. Lower is better; ' +
+  'a perfect 100 means every tap landed right where you expected.';
 
-function SubScores({ result }: { result: RoundResult }) {
-  const [openInfo, setOpenInfo] = useState<keyof typeof SUBSCORE_INFO | null>(null);
+const TEMPO_INFO_BASE =
+  'How close your overall pace was to the target. If you were ' +
+  'consistently fast or slow, the label shows by how much. If your pace ' +
+  'wobbled around the target without settling, it shows how unsteady you ' +
+  'were as a percentage.';
+
+const TEMPO_INFO_TAP_HINT =
+  ' Tap the Tempo tile above to switch the timeline between raw timing ' +
+  'and tempo-corrected timing.';
+
+interface SubScoresProps {
+  result: RoundResult;
+  tempoToggleable: boolean;
+  corrected: boolean;
+  onToggleCorrected: () => void;
+}
+
+function SubScores({ result, tempoToggleable, corrected, onToggleCorrected }: SubScoresProps) {
+  const [openInfo, setOpenInfo] = useState<'rhythm' | 'tempo' | null>(null);
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -152,8 +190,11 @@ function SubScores({ result }: { result: RoundResult }) {
     return () => window.removeEventListener('mousedown', onDown);
   }, [openInfo]);
 
-  const toggle = (k: keyof typeof SUBSCORE_INFO) => () =>
+  const toggleInfo = (k: 'rhythm' | 'tempo') => () =>
     setOpenInfo((prev) => (prev === k ? null : k));
+
+  const tempoInfo =
+    TEMPO_INFO_BASE + (tempoToggleable ? TEMPO_INFO_TAP_HINT : '');
 
   return (
     <div className="subscores" ref={ref}>
@@ -162,55 +203,83 @@ function SubScores({ result }: { result: RoundResult }) {
         value={result.rhythmScore}
         sub={`~${Math.round(result.meanAbsErrorMs)} ms avg`}
         isOpen={openInfo === 'rhythm'}
-        onToggle={toggle('rhythm')}
+        onInfoToggle={toggleInfo('rhythm')}
       />
       <Subscore
         label="Tempo"
         value={result.tempoScore}
         sub={tempoText(result)}
         isOpen={openInfo === 'tempo'}
-        onToggle={toggle('tempo')}
+        onInfoToggle={toggleInfo('tempo')}
+        onTap={tempoToggleable ? onToggleCorrected : undefined}
+        active={tempoToggleable && corrected}
       />
       {openInfo && (
         <div className="subscores__popover" role="tooltip">
           <strong className="subscores__popover-title">
             {openInfo === 'rhythm' ? 'Rhythm' : 'Tempo'}
           </strong>
-          <span>{SUBSCORE_INFO[openInfo]}</span>
+          <span>{openInfo === 'rhythm' ? RHYTHM_INFO : tempoInfo}</span>
         </div>
       )}
     </div>
   );
 }
 
-function Subscore({
-  label,
-  value,
-  sub,
-  isOpen,
-  onToggle,
-}: {
+interface SubscoreProps {
   label: string;
   value: number;
   sub: string;
   isOpen: boolean;
-  onToggle: () => void;
-}) {
+  onInfoToggle: () => void;
+  /** When provided, the tile becomes a button that calls this on click
+   *  (used by Tempo to toggle the timeline view). */
+  onTap?: () => void;
+  /** When true, the tile gets a highlighted style (used to show the
+   *  Tempo tile is currently in tempo-corrected mode). */
+  active?: boolean;
+}
+
+function Subscore({ label, value, sub, isOpen, onInfoToggle, onTap, active }: SubscoreProps) {
+  // The "i" button is a sibling of the tile (not a child) so the tile
+  // can itself be a <button> without violating HTML's no-nested-buttons
+  // rule. Both buttons sit inside a positioned wrapper.
   return (
-    <div className="subscore">
+    <div className={`subscore-wrapper ${active ? 'subscore-wrapper--active' : ''}`}>
+      {onTap ? (
+        <button
+          type="button"
+          className="subscore subscore--clickable"
+          onClick={onTap}
+          aria-pressed={active ?? false}
+        >
+          <SubscoreContent value={value} label={label} sub={sub} />
+        </button>
+      ) : (
+        <div className="subscore">
+          <SubscoreContent value={value} label={label} sub={sub} />
+        </div>
+      )}
       <button
         type="button"
         className="subscore__info"
-        onClick={onToggle}
+        onClick={onInfoToggle}
         aria-label={`About ${label}`}
         aria-expanded={isOpen}
       >
         i
       </button>
+    </div>
+  );
+}
+
+function SubscoreContent({ value, label, sub }: { value: number; label: string; sub: string }) {
+  return (
+    <>
       <div className="subscore__value">{value}</div>
       <div className="subscore__label">{label}</div>
       <div className="subscore__sub">{sub}</div>
-    </div>
+    </>
   );
 }
 
@@ -229,7 +298,11 @@ function JudgmentSummary({ result }: { result: RoundResult }) {
 
 function tempoText(r: RoundResult): string {
   if (r.tempoDirection === 'on') return 'On tempo';
-  if (r.tempoDirection === 'mixed') return `~${Math.round(r.tempoMsDev)} ms unsteady`;
+  if (r.tempoDirection === 'mixed') {
+    // Floor at 1 % so the label doesn't collapse to "0% unsteady"
+    // when there's measurable wobble that rounds down.
+    return `~${Math.max(1, r.tempoUnsteadyPct)}% unsteady`;
+  }
   return `~${r.tempoPct}% ${r.tempoDirection}`;
 }
 
