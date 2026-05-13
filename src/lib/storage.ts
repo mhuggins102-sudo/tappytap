@@ -203,6 +203,7 @@ export type Instrument =
   | 'bass'
   | 'synth'
   | 'piano'
+  | 'rhodes'
   | 'bell'
   | 'kazoo'
   | 'bikeHorn'

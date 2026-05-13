@@ -13,6 +13,7 @@ import {
   scheduleKick,
   scheduleMarimba,
   schedulePiano,
+  scheduleRhodes,
   scheduleRide,
   scheduleRim,
   scheduleShaker,
@@ -89,6 +90,9 @@ const MELODIC_GROOVES: number[][] = [
 const MARIMBA_FREQS = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5]; // C5..C6
 const SYNTH_FREQS = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25]; // C4..C5
 const PIANO_FREQS = [261.63, 329.63, 392.0, 523.25, 659.25, 783.99]; // C4 E4 G4 C5 E5 G5
+// Rhodes sits a bit lower than the bright piano voicing — it reads
+// more "soul jazz" in a mid-low register.
+const RHODES_FREQS = [196.0, 246.94, 293.66, 392.0, 493.88, 587.33]; // G3 B3 D4 G4 B4 D5
 const BASS_FREQS = [65.41, 73.42, 82.41, 98.0, 110.0, 130.81]; // C2..C3
 // Bell sits in a higher register where the inharmonic shimmer reads as
 // glockenspiel / chime rather than tubular bell.
@@ -165,15 +169,17 @@ function scheduleMelodicVoice(
       ? BASS_FREQS
       : instrument === 'piano'
         ? PIANO_FREQS
-        : instrument === 'synth'
-          ? SYNTH_FREQS
-          : instrument === 'kazoo'
-            ? KAZOO_FREQS
-            : instrument === 'bikeHorn'
-              ? BIKE_HORN_FREQS
-              : instrument === 'bell'
-                ? BELL_FREQS
-                : MARIMBA_FREQS;
+        : instrument === 'rhodes'
+          ? RHODES_FREQS
+          : instrument === 'synth'
+            ? SYNTH_FREQS
+            : instrument === 'kazoo'
+              ? KAZOO_FREQS
+              : instrument === 'bikeHorn'
+                ? BIKE_HORN_FREQS
+                : instrument === 'bell'
+                  ? BELL_FREQS
+                  : MARIMBA_FREQS;
   const freq = scale[voiceIdx % scale.length];
   switch (instrument) {
     case 'marimba':
@@ -187,6 +193,9 @@ function scheduleMelodicVoice(
       break;
     case 'piano':
       schedulePiano(ctx, when, freq);
+      break;
+    case 'rhodes':
+      scheduleRhodes(ctx, when, freq);
       break;
     case 'bell':
       scheduleBell(ctx, when, freq);
