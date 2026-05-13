@@ -347,26 +347,87 @@ export function scheduleSynthLead(ctx: AudioContext, when: number, freq: number)
   osc.stop(start + 0.45);
 }
 
-// Piano: triangle + sawtooth blend with a quick attack and medium decay.
+// Piano: additive synthesis with slightly-stretched (inharmonic) sine
+// partials plus a brief percussive noise burst representing the hammer
+// strike. Each partial gets its own decay: the fundamental sustains the
+// longest, higher partials fall off sooner, which is what real piano
+// strings do. Closer in voicing to an actual piano than the original
+// triangle+saw blend.
 export function schedulePiano(ctx: AudioContext, when: number, freq: number): void {
   const start = Math.max(when, ctx.currentTime);
   const mix = ctx.createGain();
   mix.gain.value = 1;
-  for (const [type, ratio, gain] of [
-    ['triangle', 1, 0.32] as const,
-    ['sawtooth', 1, 0.12] as const,
-    ['sine', 2, 0.08] as const,
-  ]) {
+
+  // Hammer attack — bandpassed noise transient centered on a multiple of
+  // the fundamental. Adds the "thunk" you hear before the string sings.
+  const noise = ctx.createBufferSource();
+  noise.buffer = noiseBuffer(ctx, 0.05);
+  const noiseFilt = ctx.createBiquadFilter();
+  noiseFilt.type = 'bandpass';
+  noiseFilt.frequency.value = Math.min(8000, freq * 4);
+  noiseFilt.Q.value = 1.5;
+  const noiseEnv = ctx.createGain();
+  noiseEnv.gain.setValueAtTime(0, start);
+  noiseEnv.gain.linearRampToValueAtTime(0.07, start + 0.003);
+  noiseEnv.gain.exponentialRampToValueAtTime(0.0001, start + 0.04);
+  noise.connect(noiseFilt).connect(noiseEnv).connect(mix);
+  noise.start(start);
+  noise.stop(start + 0.06);
+
+  // Inharmonic partials. Ratios deviate from pure integer multiples to
+  // mimic the stretch in real piano strings; decays decrease with
+  // partial number for a natural roll-off.
+  const partials: Array<[number, number, number]> = [
+    [1.000, 0.30, 1.3],
+    [2.005, 0.18, 0.85],
+    [3.012, 0.10, 0.6],
+    [4.025, 0.06, 0.4],
+    [5.04, 0.035, 0.28],
+  ];
+  for (const [ratio, gain, decay] of partials) {
     const osc = ctx.createOscillator();
-    osc.type = type;
+    osc.type = 'sine';
     osc.frequency.setValueAtTime(freq * ratio, start);
     const env = ctx.createGain();
     env.gain.setValueAtTime(0.0001, start);
-    env.gain.exponentialRampToValueAtTime(gain, start + 0.002);
-    env.gain.exponentialRampToValueAtTime(0.0001, start + 0.55);
+    env.gain.exponentialRampToValueAtTime(gain, start + 0.004);
+    env.gain.exponentialRampToValueAtTime(0.0001, start + decay);
     osc.connect(env).connect(mix);
     osc.start(start);
-    osc.stop(start + 0.6);
+    osc.stop(start + decay + 0.02);
+  }
+  mix.connect(getOutputNode(ctx));
+}
+
+// Bell: additive synthesis with inharmonic partials chosen to suggest
+// a tubular bell / glockenspiel spectrum (hum, strike, minor-third,
+// fifth, nominal, plus a couple of upper "shimmer" partials). Pure
+// sines so the tone is clean and ringing rather than buzzy. Decays
+// kept shorter than a real church bell so the sound works in grooves.
+export function scheduleBell(ctx: AudioContext, when: number, freq: number): void {
+  const start = Math.max(when, ctx.currentTime);
+  const mix = ctx.createGain();
+  mix.gain.value = 1;
+  const partials: Array<[number, number, number]> = [
+    [0.500, 0.14, 1.1],
+    [1.000, 0.26, 0.9],
+    [1.183, 0.20, 0.75],
+    [1.500, 0.16, 0.65],
+    [2.000, 0.12, 0.5],
+    [2.667, 0.08, 0.35],
+    [3.500, 0.05, 0.25],
+  ];
+  for (const [ratio, gain, decay] of partials) {
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq * ratio, start);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, start);
+    env.gain.exponentialRampToValueAtTime(gain, start + 0.004);
+    env.gain.exponentialRampToValueAtTime(0.0001, start + decay);
+    osc.connect(env).connect(mix);
+    osc.start(start);
+    osc.stop(start + decay + 0.02);
   }
   mix.connect(getOutputNode(ctx));
 }

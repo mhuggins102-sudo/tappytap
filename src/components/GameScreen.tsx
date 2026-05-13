@@ -10,12 +10,18 @@ interface Props {
 export function GameScreen({ state }: Props) {
   const phase = state.phase;
   const showPractice = state.isPractice && phase.kind === 'echoing';
-  // Listen Again stays visible from the moment the pattern starts playing
-  // until the player makes their first tap. That covers the listening
-  // phase, the brief gap before echo, and the "ready" sub-state of the
-  // echo phase (echoStartTime === null). One use per round.
-  const showListenAgain =
+  // Reserve space for the Listen Again button for the entire qualifying
+  // round — countdown through echo. The button itself appears inside
+  // that slot only during the listening phase and the pre-tap echo
+  // phase. Reserving the slot up front means appearance/disappearance
+  // of the button doesn't recenter the tap target underneath.
+  const slotReserved =
     state.listenAgainAvailable &&
+    (phase.kind === 'countdown' ||
+      phase.kind === 'listening' ||
+      phase.kind === 'echoing');
+  const buttonVisible =
+    slotReserved &&
     !state.listenAgainUsed &&
     (phase.kind === 'listening' ||
       (phase.kind === 'echoing' && phase.echoStartTime === null));
@@ -31,10 +37,14 @@ export function GameScreen({ state }: Props) {
       {showPractice && phase.kind === 'echoing' && <PracticeOverlay phase={phase} />}
       <TapTarget phase={phase} disabled={phase.kind !== 'echoing'} />
       <div className="game-help">{helpFor(phase)}</div>
-      {showListenAgain && (
-        <button className="btn btn--small listen-again" type="button" onClick={listenAgain}>
-          Listen again
-        </button>
+      {slotReserved && (
+        <div className="listen-again-slot">
+          {buttonVisible && (
+            <button className="btn btn--small listen-again" type="button" onClick={listenAgain}>
+              Listen again
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

@@ -13,6 +13,7 @@ const INSTRUMENTS: Array<{ id: Instrument; label: string }> = [
   { id: 'drums', label: 'Drums' },
   { id: 'marimba', label: 'Marimba' },
   { id: 'piano', label: 'Piano' },
+  { id: 'bell', label: 'Bell' },
   { id: 'synth', label: 'Synth lead' },
   { id: 'bass', label: 'Synth bass' },
   { id: 'kazoo', label: 'Kazoo' },
