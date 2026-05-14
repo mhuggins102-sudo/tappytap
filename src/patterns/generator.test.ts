@@ -87,9 +87,10 @@ describe('generatePattern: onset count is sensible per difficulty', () => {
   it('medium onsets land in the union of standard, repeated-motif, and curated ranges', () => {
     for (let i = 0; i < 60; i++) {
       const p = generateFromSeed('medium', `seed-med-count-${i}`);
-      // Standard: 6-8. Repeated-motif: 12-16 (6-8 onsets × 2 repeats).
-      // Curated (medium-eligible figures): 4-8. Union: 4-16.
-      expect(p.onsets.length).toBeGreaterThanOrEqual(4);
+      // Standard: 7-8. Repeated-motif: 12-16 (6-8 onsets × 2 repeats).
+      // Curated medium-eligible figures: 8 (habanera) and 12 (tresillo
+      // played twice via mediumRepeats). Union: 7-16.
+      expect(p.onsets.length).toBeGreaterThanOrEqual(7);
       expect(p.onsets.length).toBeLessThanOrEqual(16);
     }
   });
@@ -97,9 +98,10 @@ describe('generatePattern: onset count is sensible per difficulty', () => {
   it('hard onsets land in the standard or curated hard range', () => {
     for (let i = 0; i < 60; i++) {
       const p = generateFromSeed('hard', `seed-hard-count-${i}`);
-      // Standard hard: 8-12. Curated hard figures: 5 (son_clave_3_2),
-      // 6 (tresillo), 8 (dembow / habanera), 10 (bossa_partido). Union: 5-12.
-      expect(p.onsets.length).toBeGreaterThanOrEqual(5);
+      // Standard hard: 8-12. Curated hard figures: 4 (charleston_double),
+      // 5 (son_clave_3_2), 6 (tresillo single), 8 (dembow / habanera),
+      // 10 (bossa_partido). Union: 4-12.
+      expect(p.onsets.length).toBeGreaterThanOrEqual(4);
       expect(p.onsets.length).toBeLessThanOrEqual(12);
     }
   });

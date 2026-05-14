@@ -14,33 +14,43 @@ interface CuratedFigure {
   totalSlots: number;
   /** Slot indices that carry an onset. Must include slot 0 so the round's forced first tap aligns with the first expected onset. */
   onsetSlots: number[];
+  /** Number of times to play the figure end-to-end on Medium. Defaults
+   * to 1. Set higher for short 16th-note figures whose single-play
+   * onset count falls below Medium's 7-onset floor — repeating gives the
+   * player a meaty round and a memorable shape to hold onto. */
+  mediumRepeats?: number;
 }
 
 const FIGURES: CuratedFigure[] = [
   // Tresillo: 3+3+2 over a half-measure of 16ths, played as 0,3,6,8,11,14
   // across one 4/4 measure. Iconic Afro-Cuban shape; foundational for
-  // many Latin and Latin-derived rhythms.
+  // many Latin and Latin-derived rhythms. Plays twice on Medium (12
+  // onsets across 4.8s at 100 BPM) to meet the 7-onset minimum.
   {
     name: 'tresillo',
     difficulties: ['medium', 'hard'],
     subdivision: 4,
     totalSlots: 16,
     onsetSlots: [0, 3, 6, 8, 11, 14],
+    mediumRepeats: 2,
   },
   // Son clave 3-2: 5-stroke pattern across 2 measures of 4/4 in 8ths.
-  // 0,3,6 in the first measure, 10,12 in the second.
+  // 0,3,6 in the first measure, 10,12 in the second. Hard-only because
+  // the 5-onset count falls below Medium's 7-onset floor and the 8th-note
+  // subdivision makes a doubled play run too long.
   {
     name: 'son_clave_3_2',
-    difficulties: ['medium', 'hard'],
+    difficulties: ['hard'],
     subdivision: 2,
     totalSlots: 16,
     onsetSlots: [0, 3, 6, 10, 12],
   },
   // Charleston motif (1 & + of 2) repeated across 2 measures of 8ths.
-  // Punchy and sparse — good warm-up for medium players.
+  // Hard-only — 4 onsets is too sparse for Medium's floor, and the
+  // 8th-note subdivision makes doubling unwieldy.
   {
     name: 'charleston_double',
-    difficulties: ['medium'],
+    difficulties: ['hard'],
     subdivision: 2,
     totalSlots: 16,
     onsetSlots: [0, 3, 8, 11],
@@ -95,6 +105,10 @@ function pickFigure(
  * Materialize a curated figure into a Pattern. Returns null if no figures
  * are tagged for the given difficulty (easy never gets curated figures —
  * those rely on the simple motif-on-loop generator for predictability).
+ *
+ * Figures with `mediumRepeats > 1` play the slot grid back-to-back that
+ * many times on Medium, so short 16th-note motifs (e.g. tresillo's 6
+ * onsets) still produce a meaty round that meets Medium's 7-onset floor.
  */
 export function generateCuratedPattern(
   difficulty: Exclude<Difficulty, 'easy'>,
@@ -105,7 +119,16 @@ export function generateCuratedPattern(
   const baseBpm = difficulty === 'medium' ? 100 : 110;
   const bpm = jitterBpm(baseBpm, rng);
   const secPerSlot = 60 / bpm / fig.subdivision;
-  const onsets = fig.onsetSlots.map((s) => s * secPerSlot);
-  const durationSec = fig.totalSlots * secPerSlot;
+  const repeats =
+    difficulty === 'medium' && fig.mediumRepeats && fig.mediumRepeats > 1
+      ? fig.mediumRepeats
+      : 1;
+  const onsets: number[] = [];
+  for (let r = 0; r < repeats; r++) {
+    for (const slot of fig.onsetSlots) {
+      onsets.push((r * fig.totalSlots + slot) * secPerSlot);
+    }
+  }
+  const durationSec = repeats * fig.totalSlots * secPerSlot;
   return { bpm, onsets, durationSec, difficulty };
 }
