@@ -29,9 +29,9 @@ import { todayUtcDateString } from '../patterns/daily';
 import type { Difficulty } from '../patterns/types';
 
 const LEVELS: Array<{ id: Difficulty; label: string; blurb: string }> = [
-  { id: 'easy', label: 'Easy', blurb: 'Short 3-, 4-, or 5-beat motif on loop' },
-  { id: 'medium', label: 'Medium', blurb: 'Free-form lines, repeated motifs, or classic figures (tresillo, clave)' },
-  { id: 'hard', label: 'Hard', blurb: '16th-note syncopation, plus classic figures (bossa, dembow)' },
+  { id: 'easy', label: 'Easy', blurb: 'Short 3-, 4-, or 5-beat\nmotif on loop' },
+  { id: 'medium', label: 'Medium', blurb: 'Free-form lines, repeated motifs,\nor classic figures (tresillo, habanera)' },
+  { id: 'hard', label: 'Hard', blurb: '16th-note syncopation, plus\nclassic figures (bossa, dembow)' },
 ];
 
 export function DifficultyPicker() {
