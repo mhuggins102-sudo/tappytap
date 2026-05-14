@@ -2,10 +2,13 @@ import type { Difficulty, Pattern } from './types';
 import type { Rng } from '../lib/rng';
 import { CURATED_FIGURE_PROBABILITY, generateCuratedPattern } from './curated';
 
-// Per-round BPM jitter: ±10% of the difficulty's base tempo. Same RNG as
+// Per-round BPM jitter: ±15% of the difficulty's base tempo. Same RNG as
 // pattern generation, so the daily challenge stays deterministic. The
-// slope-based tempo scoring handles arbitrary BPMs natively.
-const BPM_JITTER_RANGE = 0.1;
+// slope-based tempo scoring handles arbitrary BPMs natively. ±15% gives
+// medium a 85–115 BPM range and hard a 93.5–126.5 range, so the
+// per-round tempo feel varies noticeably without crossing into "this
+// difficulty doesn't feel like itself anymore".
+const BPM_JITTER_RANGE = 0.15;
 
 export function jitterBpm(baseBpm: number, rng: Rng): number {
   const factor = 1 + (rng() - 0.5) * 2 * BPM_JITTER_RANGE;
@@ -29,11 +32,12 @@ const STANDARD_CONFIGS: Record<Exclude<Difficulty, 'easy'>, StandardConfig> = {
     beatsPerMeasure: 4,
     measures: 2,
     subdivision: 2,
-    // Medium non-repeating rounds (this path and the curated figures
-    // that don't auto-repeat) carry a 7-onset minimum so a round always
-    // has enough material to read as "medium" rather than "easy".
+    // Medium non-repeating rounds carry a 7-onset minimum so a round
+    // always has enough material to read as "medium" rather than "easy".
+    // The widened max + per-round density jitter (below) inject more
+    // round-to-round variety than the old 7-8 / fixed-density combo.
     minOnsets: 7,
-    maxOnsets: 8,
+    maxOnsets: 10,
     density: 0.55,
     syncopate: false,
   },
@@ -43,17 +47,28 @@ const STANDARD_CONFIGS: Record<Exclude<Difficulty, 'easy'>, StandardConfig> = {
     measures: 2,
     subdivision: 4,
     minOnsets: 8,
-    maxOnsets: 12,
+    maxOnsets: 13,
     density: 0.5,
     syncopate: true,
   },
 };
 
+// Per-round density jitter added on top of the difficulty's base density
+// when generating standard procedural patterns. Onset count is still
+// clamped to [minOnsets, maxOnsets], so density mainly changes *where*
+// the onsets land (clustered vs spread). ±0.10 is enough to produce
+// noticeably sparser or denser rounds without breaking the difficulty's
+// general feel.
+const DENSITY_JITTER_RANGE = 0.1;
+
 // On Medium, a portion of rounds use a "repeated motif" mode: a single
-// measure with 6–7 onsets, played back-to-back twice. The motif itself is
+// measure with 6–8 onsets, played back-to-back twice. The motif itself is
 // still random (so the timing stays interesting) but because the second
 // half mirrors the first, the player has a memorable shape to hold onto.
-const MEDIUM_REPEATED_MOTIF_PROBABILITY = 0.4;
+// Dialed back from 40% so most medium rounds are free-form — the
+// memorable repeat used to land too often and felt easy relative to the
+// rest of the medium pool.
+const MEDIUM_REPEATED_MOTIF_PROBABILITY = 0.25;
 
 export function generatePattern(difficulty: Difficulty, rng: Rng): Pattern {
   if (difficulty === 'easy') return generateEasyPattern(rng);
@@ -170,10 +185,17 @@ function generateStandardPattern(difficulty: Exclude<Difficulty, 'easy'>, rng: R
   const totalSlots = cfg.beatsPerMeasure * cfg.measures * cfg.subdivision;
   const secPerSlot = 60 / bpm / cfg.subdivision;
 
+  // Density jitter changes the onset distribution shape per round —
+  // sparser rounds tend to cluster onsets, denser rounds spread them.
+  // Clamped to a safe range so we never overflow into "all slots" or
+  // "almost no slots".
+  const densityShift = (rng() - 0.5) * 2 * DENSITY_JITTER_RANGE;
+  const density = Math.max(0.2, Math.min(0.8, cfg.density + densityShift));
+
   const slots: boolean[] = new Array(totalSlots).fill(false);
   slots[0] = true;
   for (let i = 1; i < totalSlots; i++) {
-    if (rng() < cfg.density) slots[i] = true;
+    if (rng() < density) slots[i] = true;
   }
 
   enforceOnsetCount(slots, cfg.minOnsets, cfg.maxOnsets, rng);
