@@ -714,6 +714,14 @@ button {
   cursor: pointer;
 }
 
+/* Pattern-row dot rendered at the position of an expected onset the
+   player never reached. Clickable like the You-row dots so the player
+   can read the score penalty in the popover below. */
+.timeline-dot--tail-miss {
+  cursor: pointer;
+  opacity: 0.85;
+}
+
 .timeline-dot--selected {
   outline: 2px solid rgba(255, 255, 255, 0.7);
   outline-offset: 2px;
@@ -1487,43 +1495,70 @@ button {
 
 /* === Display-mode overrides (toggled via Settings ▸ Display) === */
 
-/* Colorblind shapes: prepend a per-judgment glyph to each tally tile so
-   the five tiers can be distinguished by shape, not just hue. The CSS
-   variable lets each --variant supply its own character without bloating
-   the rule list. */
+/* Colorblind shapes: render a per-judgment shape as a pseudo-element on
+   each tally tile, and replace the round timeline dots with the matching
+   shape silhouettes. Both use the same primitive (a fixed-size box with
+   clip-path) so visual weight stays consistent across tiers, unlike the
+   Unicode-glyph approach which renders at different scales by font. */
+
+/* Tally tiles: a small filled shape sits above the count. */
 .app--colorblind .tally::before {
-  content: var(--tally-glyph, '');
+  content: '';
   display: block;
-  font-size: 13px;
-  line-height: 1;
-  margin-bottom: 4px;
-  font-weight: 700;
+  width: 14px;
+  height: 14px;
+  margin: 0 auto 4px;
+  background: currentColor;
 }
 
-.app--colorblind .tally--perfect { --tally-glyph: '▲'; }
-.app--colorblind .tally--great   { --tally-glyph: '●'; }
-.app--colorblind .tally--good    { --tally-glyph: '◆'; }
-.app--colorblind .tally--ok      { --tally-glyph: '■'; }
-.app--colorblind .tally--miss    { --tally-glyph: '✕'; }
-
-.app--colorblind .tally--perfect::before { color: var(--perfect); }
-.app--colorblind .tally--great::before   { color: var(--great); }
-.app--colorblind .tally--good::before    { color: var(--good); }
-.app--colorblind .tally--ok::before      { color: var(--ok); }
-.app--colorblind .tally--miss::before    { color: var(--miss); }
-
-/* Inline glyphs next to the tier pill inside tap-detail popovers. */
-.app--colorblind .timeline__tap-popover-tier::before {
-  content: var(--tier-glyph, '');
-  margin-right: 4px;
-  font-weight: 700;
+.app--colorblind .tally--perfect::before {
+  background: var(--perfect);
+  border-radius: 50%;
+}
+.app--colorblind .tally--great::before {
+  background: var(--great);
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}
+.app--colorblind .tally--good::before {
+  background: var(--good);
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+.app--colorblind .tally--ok::before {
+  background: var(--ok);
+}
+.app--colorblind .tally--miss::before {
+  background: var(--miss);
+  clip-path: polygon(
+    15% 0%, 50% 35%, 85% 0%, 100% 15%,
+    65% 50%, 100% 85%, 85% 100%, 50% 65%,
+    15% 100%, 0% 85%, 35% 50%, 0% 15%
+  );
 }
 
-.app--colorblind .timeline__tap-popover-tier--perfect { --tier-glyph: '▲'; }
-.app--colorblind .timeline__tap-popover-tier--great   { --tier-glyph: '●'; }
-.app--colorblind .timeline__tap-popover-tier--good    { --tier-glyph: '◆'; }
-.app--colorblind .timeline__tap-popover-tier--ok      { --tier-glyph: '■'; }
-.app--colorblind .timeline__tap-popover-tier--miss    { --tier-glyph: '✕'; }
+/* Timeline dots: swap the perfect-circle silhouette for the same shape
+   family the tally uses. Drop the box-shadow outline because clip-path
+   would clip it — drop-shadow on the parent keeps a subtle outline. */
+.app--colorblind .timeline-dot--great,
+.app--colorblind .timeline-dot--good,
+.app--colorblind .timeline-dot--ok,
+.app--colorblind .timeline-dot--miss {
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.app--colorblind .timeline-dot--great {
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}
+.app--colorblind .timeline-dot--good {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+.app--colorblind .timeline-dot--miss {
+  clip-path: polygon(
+    15% 0%, 50% 35%, 85% 0%, 100% 15%,
+    65% 50%, 100% 85%, 85% 100%, 50% 65%,
+    15% 100%, 0% 85%, 35% 50%, 0% 15%
+  );
+}
 
 /* Reduce motion: freeze the tap-target pulse and flash (both driven by
    JS-set inline CSS variables, so the override needs !important to win),

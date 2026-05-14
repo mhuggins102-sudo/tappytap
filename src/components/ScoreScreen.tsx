@@ -167,9 +167,9 @@ const RHYTHM_INFO_TAP_HINT =
 
 const TEMPO_INFO_BASE =
   'How close your overall pace was to the target. If you were ' +
-  'consistently fast or slow, the label shows by how much; otherwise ' +
-  'it just says "On tempo". Wobble in your individual taps (without a ' +
-  'consistent lean) shows up in your Rhythm score, not here.';
+  'consistently fast or slow, the label shows by how much. If your ' +
+  'taps shift in both directions without a clear lean, you’ll see ' +
+  '"Unsteady". Otherwise the label reads "On tempo".';
 
 const TEMPO_INFO_TAP_HINT =
   'Tap the Tempo tile above to switch the timeline between raw timing ' +
