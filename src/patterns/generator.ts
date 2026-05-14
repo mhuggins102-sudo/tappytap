@@ -29,7 +29,10 @@ const STANDARD_CONFIGS: Record<Exclude<Difficulty, 'easy'>, StandardConfig> = {
     beatsPerMeasure: 4,
     measures: 2,
     subdivision: 2,
-    minOnsets: 6,
+    // Medium non-repeating rounds (this path and the curated figures
+    // that don't auto-repeat) carry a 7-onset minimum so a round always
+    // has enough material to read as "medium" rather than "easy".
+    minOnsets: 7,
     maxOnsets: 8,
     density: 0.55,
     syncopate: false,

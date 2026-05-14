@@ -93,7 +93,7 @@ export function TimelineCompare({ pattern, result, corrected, grooveIdx }: Props
                 return (
                   <span
                     key={i}
-                    className="timeline-dot timeline-dot--miss timeline-dot--tail-miss"
+                    className={`timeline-dot timeline-dot--miss timeline-dot--tail-miss${tailMissOpen ? ' timeline-dot--selected' : ''}`}
                     style={{ left: `${(onset / denom) * 100}%` }}
                     title={`${tailMissCount}/${expected.length} taps missed: ${tailMissPct}% score penalty`}
                     onClick={(e) => {
@@ -144,6 +144,7 @@ export function TimelineCompare({ pattern, result, corrected, grooveIdx }: Props
                   title={titleFor(tap, corrected)}
                   onClick={(e) => {
                     e.stopPropagation();
+                    setTailMissOpen(false);
                     setSelectedTap((prev) => (prev === i ? null : i));
                   }}
                 />
