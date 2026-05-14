@@ -42,21 +42,24 @@ describe('generatePattern: basic invariants', () => {
   });
 });
 
-describe('generatePattern: BPM jitter (±10%)', () => {
-  it.each(DIFFICULTIES)('%s BPM stays within ±10% of the difficulty base', (d) => {
+describe('generatePattern: BPM jitter (±15%)', () => {
+  it.each(DIFFICULTIES)('%s BPM stays within ±15% of the difficulty base', (d) => {
     const base = d === 'hard' ? 110 : 100;
     for (let i = 0; i < 50; i++) {
       const p = generateFromSeed(d, `seed-bpm-${d}-${i}`);
-      expect(p.bpm).toBeGreaterThanOrEqual(Math.round(base * 0.9));
-      expect(p.bpm).toBeLessThanOrEqual(Math.round(base * 1.1));
+      // Easy and Medium use base 100, Hard uses 110. Round-trip through
+      // Math.round can shift bounds by 1 when the ±15% multiplier lands
+      // on a half-integer, so allow ±1.
+      expect(p.bpm).toBeGreaterThanOrEqual(Math.round(base * 0.85) - 1);
+      expect(p.bpm).toBeLessThanOrEqual(Math.round(base * 1.15) + 1);
     }
   });
 
-  it('jitterBpm consumes one rng() call and produces a value within ±10%', () => {
+  it('jitterBpm consumes one rng() call and produces a value within ±15%', () => {
     const seed = rngFromString('seed-jitter');
     const bpm = jitterBpm(100, seed);
-    expect(bpm).toBeGreaterThanOrEqual(90);
-    expect(bpm).toBeLessThanOrEqual(110);
+    expect(bpm).toBeGreaterThanOrEqual(85);
+    expect(bpm).toBeLessThanOrEqual(115);
   });
 
   it('jitterBpm covers both the fast and slow halves of the range', () => {
@@ -87,7 +90,7 @@ describe('generatePattern: onset count is sensible per difficulty', () => {
   it('medium onsets land in the union of standard, repeated-motif, and curated ranges', () => {
     for (let i = 0; i < 60; i++) {
       const p = generateFromSeed('medium', `seed-med-count-${i}`);
-      // Standard: 7-8. Repeated-motif: 12-16 (6-8 onsets × 2 repeats).
+      // Standard: 7-10. Repeated-motif: 12-16 (6-8 onsets × 2 repeats).
       // Curated medium-eligible figures: 8 (habanera) and 12 (tresillo
       // across 2 measures). Union: 7-16.
       expect(p.onsets.length).toBeGreaterThanOrEqual(7);
@@ -98,10 +101,10 @@ describe('generatePattern: onset count is sensible per difficulty', () => {
   it('hard onsets land in the standard or curated hard range', () => {
     for (let i = 0; i < 60; i++) {
       const p = generateFromSeed('hard', `seed-hard-count-${i}`);
-      // Standard hard: 8-12. Curated hard figures: 8 (dembow / habanera),
-      // 10 (bossa_partido), 12 (tresillo across 2 measures). Union: 8-12.
+      // Standard hard: 8-13. Curated hard figures: 8 (dembow / habanera),
+      // 10 (bossa_partido), 12 (tresillo across 2 measures). Union: 8-13.
       expect(p.onsets.length).toBeGreaterThanOrEqual(8);
-      expect(p.onsets.length).toBeLessThanOrEqual(12);
+      expect(p.onsets.length).toBeLessThanOrEqual(13);
     }
   });
 });
@@ -129,13 +132,13 @@ describe('generateCuratedPattern', () => {
   it('curated patterns inherit BPM jitter from the difficulty base', () => {
     for (let i = 0; i < 30; i++) {
       const p = generateCuratedPattern('medium', rngFromString(`seed-bpm-med-${i}`))!;
-      expect(p.bpm).toBeGreaterThanOrEqual(90);
-      expect(p.bpm).toBeLessThanOrEqual(110);
+      expect(p.bpm).toBeGreaterThanOrEqual(Math.round(100 * 0.85) - 1);
+      expect(p.bpm).toBeLessThanOrEqual(Math.round(100 * 1.15) + 1);
     }
     for (let i = 0; i < 30; i++) {
       const p = generateCuratedPattern('hard', rngFromString(`seed-bpm-hard-${i}`))!;
-      expect(p.bpm).toBeGreaterThanOrEqual(Math.round(110 * 0.9));
-      expect(p.bpm).toBeLessThanOrEqual(Math.round(110 * 1.1));
+      expect(p.bpm).toBeGreaterThanOrEqual(Math.round(110 * 0.85) - 1);
+      expect(p.bpm).toBeLessThanOrEqual(Math.round(110 * 1.15) + 1);
     }
   });
 

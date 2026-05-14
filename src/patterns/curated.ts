@@ -60,11 +60,12 @@ const FIGURES: CuratedFigure[] = [
 
 /**
  * Probability that a Medium or Hard round uses a curated rhythmic figure
- * instead of the procedural generator. 30% keeps procedural patterns the
- * majority while letting recognizable shapes (tresillo, son clave,
- * habanera, etc.) surface often enough to develop pattern recognition.
+ * instead of the procedural generator. Dialed back to 20% so most rounds
+ * — especially on Hard — are free-form syncopation rather than a
+ * recognizable repeating motif, but the named figures still surface
+ * often enough to develop pattern recognition.
  */
-export const CURATED_FIGURE_PROBABILITY = 0.3;
+export const CURATED_FIGURE_PROBABILITY = 0.2;
 
 function pickFigure(
   difficulty: Exclude<Difficulty, 'easy'>,
