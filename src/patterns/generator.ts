@@ -1,5 +1,16 @@
 import type { Difficulty, Pattern } from './types';
 import type { Rng } from '../lib/rng';
+import { CURATED_FIGURE_PROBABILITY, generateCuratedPattern } from './curated';
+
+// Per-round BPM jitter: ±10% of the difficulty's base tempo. Same RNG as
+// pattern generation, so the daily challenge stays deterministic. The
+// slope-based tempo scoring handles arbitrary BPMs natively.
+const BPM_JITTER_RANGE = 0.1;
+
+export function jitterBpm(baseBpm: number, rng: Rng): number {
+  const factor = 1 + (rng() - 0.5) * 2 * BPM_JITTER_RANGE;
+  return Math.round(baseBpm * factor);
+}
 
 interface StandardConfig {
   bpm: number;
@@ -43,6 +54,13 @@ const MEDIUM_REPEATED_MOTIF_PROBABILITY = 0.4;
 
 export function generatePattern(difficulty: Difficulty, rng: Rng): Pattern {
   if (difficulty === 'easy') return generateEasyPattern(rng);
+  // Curated rhythmic figures (tresillo, son clave, habanera, etc.) get
+  // a slice of Medium and Hard rounds for musical character; the
+  // procedural generators still produce the majority of patterns.
+  if (rng() < CURATED_FIGURE_PROBABILITY) {
+    const curated = generateCuratedPattern(difficulty, rng);
+    if (curated) return curated;
+  }
   if (difficulty === 'medium' && rng() < MEDIUM_REPEATED_MOTIF_PROBABILITY) {
     return generateMediumRepeated(rng);
   }
@@ -50,7 +68,7 @@ export function generatePattern(difficulty: Difficulty, rng: Rng): Pattern {
 }
 
 function generateMediumRepeated(rng: Rng): Pattern {
-  const bpm = 100;
+  const bpm = jitterBpm(100, rng);
   // 16th-note resolution (subdivision 4 = four slots per beat) so the
   // motif's inter-onset intervals can land anywhere from a 16th to a
   // dotted-eighth apart. Coarser subdivision made these motifs sound
@@ -108,7 +126,7 @@ const EASY_MOTIF_CONFIGS: Array<{
 ];
 
 function generateEasyPattern(rng: Rng): Pattern {
-  const bpm = 100;
+  const bpm = jitterBpm(100, rng);
   const subdivision = 2;
   const cfg = EASY_MOTIF_CONFIGS[Math.floor(rng() * EASY_MOTIF_CONFIGS.length)];
   const slotsPerMotif = cfg.beats * subdivision;
@@ -145,8 +163,9 @@ function generateEasyPattern(rng: Rng): Pattern {
 
 function generateStandardPattern(difficulty: Exclude<Difficulty, 'easy'>, rng: Rng): Pattern {
   const cfg = STANDARD_CONFIGS[difficulty];
+  const bpm = jitterBpm(cfg.bpm, rng);
   const totalSlots = cfg.beatsPerMeasure * cfg.measures * cfg.subdivision;
-  const secPerSlot = 60 / cfg.bpm / cfg.subdivision;
+  const secPerSlot = 60 / bpm / cfg.subdivision;
 
   const slots: boolean[] = new Array(totalSlots).fill(false);
   slots[0] = true;
@@ -163,7 +182,7 @@ function generateStandardPattern(difficulty: Exclude<Difficulty, 'easy'>, rng: R
   }
   const durationSec = totalSlots * secPerSlot;
 
-  return { bpm: cfg.bpm, onsets, durationSec, difficulty };
+  return { bpm, onsets, durationSec, difficulty };
 }
 
 function enforceOnsetCount(slots: boolean[], min: number, max: number, rng: Rng): void {

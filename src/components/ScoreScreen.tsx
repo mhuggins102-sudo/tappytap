@@ -315,12 +315,12 @@ function JudgmentSummary({ result }: { result: RoundResult }) {
 }
 
 function tempoText(r: RoundResult): string {
-  // 'mixed' (wobble without a slope lean) collapses into "On tempo"
-  // because tempo measures pace — and the pace is fine. The wobble's
-  // penalty already lives in the rhythm score via per-tap residuals,
-  // so reporting it here too would imply a tempo cost that doesn't
-  // exist.
-  if (r.tempoDirection === 'on' || r.tempoDirection === 'mixed') return 'On tempo';
+  // 'mixed' (wobble without a directional slope lean) surfaces as a plain
+  // "Unsteady" label — no percentage, since players found the number
+  // confusing relative to fast/slow percentages. The wobble's actual
+  // penalty still lives in the rhythm score, not here.
+  if (r.tempoDirection === 'on') return 'On tempo';
+  if (r.tempoDirection === 'mixed') return 'Unsteady';
   return `~${r.tempoPct}% ${r.tempoDirection}`;
 }
 

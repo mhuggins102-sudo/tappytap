@@ -34,6 +34,7 @@ export interface RoundResult {
   tempoUnsteadyPct: number;
   /** Whether the deviation has a dominant direction; 'mixed' when it doesn't. */
   tempoDirection: 'fast' | 'slow' | 'mixed' | 'on';
+  /** Fraction of expected onsets the player tapped at all (regardless of accuracy). Used to scale rhythm and tempo subscores so incomplete rounds are penalized proportionally. */
   completenessPct: number;
   meanAbsErrorMs: number;
 }

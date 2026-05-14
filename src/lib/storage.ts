@@ -217,6 +217,10 @@ export interface Settings {
   practiceMode: boolean;
   soundTheme: SoundTheme;
   instrument: Instrument;
+  /** Add shape glyphs alongside judgment colors so colorblind users can distinguish Perfect/Great/Good/OK/Miss without relying on hue. */
+  colorblind: boolean;
+  /** Suppress decorative pulse and flash animations on the tap target and timeline; respect this when the player is sensitive to motion. */
+  reduceMotion: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -225,6 +229,8 @@ const DEFAULT_SETTINGS: Settings = {
   practiceMode: false,
   soundTheme: 'groove',
   instrument: 'drums',
+  colorblind: false,
+  reduceMotion: false,
 };
 
 export function loadSettings(): Settings {
@@ -233,9 +239,19 @@ export function loadSettings(): Settings {
   return { ...DEFAULT_SETTINGS, ...parsed };
 }
 
+/**
+ * Custom event dispatched after settings change so listeners (e.g. the
+ * root <App> applying display-mode classes) can refresh without prop
+ * drilling or a global store.
+ */
+export const SETTINGS_CHANGE_EVENT = 'tappytap:settingschange';
+
 export function saveSettings(next: Partial<Omit<Settings, 'v'>>): Settings {
   const current = loadSettings();
   const merged: Settings = { ...current, ...next, v: SETTINGS_VERSION };
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT));
+  }
   return merged;
 }

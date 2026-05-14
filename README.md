@@ -24,12 +24,14 @@ npm run build      # outputs to dist/
 npm run preview    # serve the built bundle locally
 ```
 
-## Verify scoring + patterns
+## Tests
 
 ```sh
-npx tsx scripts/smoke-scoring.mjs
-npx tsx scripts/smoke-patterns.mjs
+npm test           # run the Vitest suite once
+npm run test:watch # re-run tests on change
 ```
+
+The suite covers the scoring algorithm (tempo/rhythm subscores, completion-ratio scaling, judgment tiers, outlier handling) and pattern generation (BPM jitter range, onset count bounds per difficulty, curated figure invariants, daily determinism).
 
 ## Deploy to Cloudflare Pages
 

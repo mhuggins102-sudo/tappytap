@@ -977,56 +977,146 @@ button {
   color: var(--fg);
 }
 
-.settings {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
+/* Picker header: title with a settings gear floated to the right. */
+.picker-header {
   width: 100%;
-  max-width: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
 }
 
-.settings__trigger {
+.picker-header .subtitle {
+  flex: 0 1 auto;
+}
+
+.picker-header__gear {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  appearance: none;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--fg-dim);
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+@media (hover: hover) {
+  .picker-header__gear:hover {
+    color: var(--fg);
+    border-color: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.04);
+  }
+}
+
+/* Modal popover layered over the picker. Backdrop dismisses on click; the
+   panel itself stops propagation so taps inside don't close it. */
+.settings-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(12px, 4vw, 32px);
+  padding-top: calc(clamp(12px, 4vw, 32px) + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(clamp(12px, 4vw, 32px) + env(safe-area-inset-bottom, 0px));
+}
+
+.settings-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+}
+
+.settings-modal__panel {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  max-height: 100%;
+  background: var(--bg-elev);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.settings-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.settings-modal__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.settings-modal__close {
   appearance: none;
   background: transparent;
   border: none;
   color: var(--fg-dim);
+  font-size: 26px;
+  line-height: 1;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  padding: 4px 8px;
-  align-self: center;
+  padding: 0 6px;
+  border-radius: 8px;
+  transition: color 120ms ease, background 120ms ease;
 }
 
 @media (hover: hover) {
-  .settings__trigger:hover {
+  .settings-modal__close:hover {
     color: var(--fg);
+    background: rgba(255, 255, 255, 0.06);
   }
 }
 
-.settings__gear {
-  display: inline-block;
-  transition: transform 200ms ease;
-  font-size: 14px;
-}
-
-.settings__trigger[aria-expanded="true"] .settings__gear {
-  transform: rotate(60deg);
-  color: var(--accent-2);
-}
-
-.settings__panel {
+.settings-modal__body {
+  padding: 10px 12px 14px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  background: rgba(20, 24, 35, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius);
-  padding: 8px;
+  gap: 8px;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+}
+
+.settings-section + .settings-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 10px;
+}
+
+.settings-section__title {
+  margin: 0 0 4px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--fg-dim);
 }
 
 .setting-row {
@@ -1393,4 +1483,67 @@ button {
 .listen-again {
   border-color: rgba(255, 255, 255, 0.18);
   color: var(--fg-dim);
+}
+
+/* === Display-mode overrides (toggled via Settings ▸ Display) === */
+
+/* Colorblind shapes: prepend a per-judgment glyph to each tally tile so
+   the five tiers can be distinguished by shape, not just hue. The CSS
+   variable lets each --variant supply its own character without bloating
+   the rule list. */
+.app--colorblind .tally::before {
+  content: var(--tally-glyph, '');
+  display: block;
+  font-size: 13px;
+  line-height: 1;
+  margin-bottom: 4px;
+  font-weight: 700;
+}
+
+.app--colorblind .tally--perfect { --tally-glyph: '▲'; }
+.app--colorblind .tally--great   { --tally-glyph: '●'; }
+.app--colorblind .tally--good    { --tally-glyph: '◆'; }
+.app--colorblind .tally--ok      { --tally-glyph: '■'; }
+.app--colorblind .tally--miss    { --tally-glyph: '✕'; }
+
+.app--colorblind .tally--perfect::before { color: var(--perfect); }
+.app--colorblind .tally--great::before   { color: var(--great); }
+.app--colorblind .tally--good::before    { color: var(--good); }
+.app--colorblind .tally--ok::before      { color: var(--ok); }
+.app--colorblind .tally--miss::before    { color: var(--miss); }
+
+/* Inline glyphs next to the tier pill inside tap-detail popovers. */
+.app--colorblind .timeline__tap-popover-tier::before {
+  content: var(--tier-glyph, '');
+  margin-right: 4px;
+  font-weight: 700;
+}
+
+.app--colorblind .timeline__tap-popover-tier--perfect { --tier-glyph: '▲'; }
+.app--colorblind .timeline__tap-popover-tier--great   { --tier-glyph: '●'; }
+.app--colorblind .timeline__tap-popover-tier--good    { --tier-glyph: '◆'; }
+.app--colorblind .timeline__tap-popover-tier--ok      { --tier-glyph: '■'; }
+.app--colorblind .timeline__tap-popover-tier--miss    { --tier-glyph: '✕'; }
+
+/* Reduce motion: freeze the tap-target pulse and flash (both driven by
+   JS-set inline CSS variables, so the override needs !important to win),
+   and strip transitions on the animated timeline dot drop-in. */
+.app--reduce-motion .tap-target {
+  --pulse: 0 !important;
+}
+
+.app--reduce-motion .tap-target__flash {
+  --flash-intensity: 0 !important;
+}
+
+.app--reduce-motion .timeline-dot--animated {
+  transition: none !important;
+}
+
+.app--reduce-motion .tap-target {
+  transition: none !important;
+}
+
+.app--reduce-motion .tap-target:active {
+  transform: none !important;
 }
