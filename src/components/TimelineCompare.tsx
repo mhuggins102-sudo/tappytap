@@ -31,23 +31,37 @@ export function TimelineCompare({ pattern, result, corrected, grooveIdx }: Props
   const maxOnTempo = tapTimes.length ? Math.max(...tapTimes.map(onTempo)) : 0;
   const denom = Math.max(0.001, pattern.durationSec, maxTap, maxOnTempo);
 
-  const [selectedTap, setSelectedTap] = useState<number | null>(null);
+  // Tail misses: expected onsets the player never reached (tapTime is null).
+  // These are excluded from the rhythm-error average; the cost lands as a
+  // completion-ratio multiplier on both Rhythm and Tempo. Surfaced here so
+  // the player can see exactly which dots dragged the score down.
+  const tailMissCount = result.taps.filter(
+    (t) => t.tapTime === null && t.judgment === 'miss',
+  ).length;
+  const tailMissPct =
+    expected.length > 0 ? Math.round((tailMissCount / expected.length) * 100) : 0;
 
-  // Dismiss the tap-detail popover when the user clicks/taps anywhere that
-  // isn't another tap dot. The setTimeout prevents the click that opened
-  // the popover from immediately closing it.
+  const [selectedTap, setSelectedTap] = useState<number | null>(null);
+  const [tailMissOpen, setTailMissOpen] = useState(false);
+
+  // Dismiss the tap-detail popover (or the tail-miss popover) when the
+  // user clicks/taps anywhere that isn't a timeline dot. The setTimeout
+  // prevents the click that opened a popover from immediately closing it.
   useEffect(() => {
-    if (selectedTap === null) return;
+    if (selectedTap === null && !tailMissOpen) return;
     const onDocClick = (e: MouseEvent) => {
       const t = e.target as HTMLElement | null;
-      if (!t || !t.closest('.timeline-dot')) setSelectedTap(null);
+      if (!t || !t.closest('.timeline-dot')) {
+        setSelectedTap(null);
+        setTailMissOpen(false);
+      }
     };
     const id = window.setTimeout(() => document.addEventListener('click', onDocClick), 0);
     return () => {
       window.clearTimeout(id);
       document.removeEventListener('click', onDocClick);
     };
-  }, [selectedTap]);
+  }, [selectedTap, tailMissOpen]);
 
   const onPlayYou = () => {
     // Play each tap at its dot's current position — raw times by
@@ -71,13 +85,33 @@ export function TimelineCompare({ pattern, result, corrected, grooveIdx }: Props
         <div className="timeline__row">
           <span className="timeline__label">Pattern</span>
           <div className="timeline__track timeline__track--expected">
-            {expected.map((onset, i) => (
-              <span
-                key={i}
-                className="timeline-dot timeline-dot--expected"
-                style={{ left: `${(onset / denom) * 100}%` }}
-              />
-            ))}
+            {expected.map((onset, i) => {
+              const tap = result.taps[i];
+              const isTailMiss =
+                !!tap && tap.tapTime === null && tap.judgment === 'miss';
+              if (isTailMiss) {
+                return (
+                  <span
+                    key={i}
+                    className="timeline-dot timeline-dot--miss timeline-dot--tail-miss"
+                    style={{ left: `${(onset / denom) * 100}%` }}
+                    title={`${tailMissCount}/${expected.length} taps missed: ${tailMissPct}% score penalty`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedTap(null);
+                      setTailMissOpen((prev) => !prev);
+                    }}
+                  />
+                );
+              }
+              return (
+                <span
+                  key={i}
+                  className="timeline-dot timeline-dot--expected"
+                  style={{ left: `${(onset / denom) * 100}%` }}
+                />
+              );
+            })}
           </div>
         </div>
         <div className="timeline__row">
@@ -123,7 +157,36 @@ export function TimelineCompare({ pattern, result, corrected, grooveIdx }: Props
       {selectedTap !== null && result.taps[selectedTap] && (
         <TapDetail tap={result.taps[selectedTap]} index={selectedTap} corrected={corrected} />
       )}
+      {tailMissOpen && tailMissCount > 0 && (
+        <TailMissDetail
+          missed={tailMissCount}
+          total={expected.length}
+          penaltyPct={tailMissPct}
+        />
+      )}
     </>
+  );
+}
+
+function TailMissDetail({
+  missed,
+  total,
+  penaltyPct,
+}: {
+  missed: number;
+  total: number;
+  penaltyPct: number;
+}) {
+  return (
+    <div className="timeline__tap-popover">
+      <span className="timeline__tap-popover-tier timeline__tap-popover-tier--miss">
+        miss
+      </span>
+      <span className="timeline__tap-popover-text">
+        <strong>{missed}/{total}</strong> taps missed:{' '}
+        <strong>{penaltyPct}% score penalty</strong>
+      </span>
+    </div>
   );
 }
 

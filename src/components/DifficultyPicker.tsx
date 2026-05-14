@@ -30,8 +30,8 @@ import type { Difficulty } from '../patterns/types';
 
 const LEVELS: Array<{ id: Difficulty; label: string; blurb: string }> = [
   { id: 'easy', label: 'Easy', blurb: 'Short 3-, 4-, or 5-beat motif on loop' },
-  { id: 'medium', label: 'Medium', blurb: 'A free-form line — or a denser motif repeated' },
-  { id: 'hard', label: 'Hard', blurb: '16th-note rhythms with syncopation' },
+  { id: 'medium', label: 'Medium', blurb: 'Free-form lines, repeated motifs, or classic figures (tresillo, clave)' },
+  { id: 'hard', label: 'Hard', blurb: '16th-note syncopation, plus classic figures (bossa, dembow)' },
 ];
 
 export function DifficultyPicker() {
@@ -229,22 +229,6 @@ function SettingsModal({ onClose, scores, onClearStats, onPracticeChange }: Sett
         </header>
         <div className="settings-modal__body">
           <section className="settings-section">
-            <h4 className="settings-section__title">Display</h4>
-            <SettingRow
-              label="Colorblind shapes"
-              hint="Add glyphs alongside colors"
-              on={colorblind}
-              onToggle={onToggleColorblind}
-            />
-            <SettingRow
-              label="Reduce motion"
-              hint="Suppress pulse and flash animations"
-              on={reduceMotion}
-              onToggle={onToggleReduceMotion}
-            />
-          </section>
-
-          <section className="settings-section">
             <h4 className="settings-section__title">Sound</h4>
             <SettingRow
               label="Groove sounds"
@@ -273,6 +257,22 @@ function SettingsModal({ onClose, scores, onClearStats, onPracticeChange }: Sett
               on={liveFeedback}
               onToggle={onToggleLive}
               disabled={!practiceMode}
+            />
+          </section>
+
+          <section className="settings-section">
+            <h4 className="settings-section__title">Display</h4>
+            <SettingRow
+              label="Colorblind shapes"
+              hint="Add glyphs alongside colors"
+              on={colorblind}
+              onToggle={onToggleColorblind}
+            />
+            <SettingRow
+              label="Reduce motion"
+              hint="Suppress pulse and flash animations"
+              on={reduceMotion}
+              onToggle={onToggleReduceMotion}
             />
           </section>
 
