@@ -226,14 +226,12 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
     });
   }
 
-  // Tail expected onsets the player didn't reach are misses with no tap.
-  // They feed the same penalty into rhythm as a matched miss, so stopping
-  // early hurts rhythm proportionally. (i is always ≥ 1 here if any taps
-  // were made; if matchedCount = 0, the first iteration's i = 0 starts a
-  // round where no first tap was forced, so it correctly counts.)
+  // Tail expected onsets the player didn't reach are recorded as misses
+  // so the timeline and judgment counts reflect them, but they don't pump
+  // into the rhythm-error average — incomplete rounds are penalized
+  // proportionally by the completion-ratio scaling applied to both
+  // subscores below.
   for (let i = matchedCount; i < expectedCount; i++) {
-    rhythmErrorSum += SCORE_PENALTY_CAP_MS;
-    rhythmContribCount++;
     tapResults.push({
       expectedIdx: i,
       tapTime: null,
@@ -252,15 +250,14 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
   };
   for (const r of tapResults) counts[r.judgment]++;
 
-  // Rhythm averages residuals over every meaningful onset — misses
-  // included, but excluding the forced first tap which is always at time
-  // 0 (residual 0) and would otherwise dilute the average. When there's
-  // nothing past the first tap to measure (single-onset pattern that the
-  // player completed) the round is trivially perfect.
+  // Rhythm averages residuals over the taps the player actually made,
+  // excluding the forced first tap (always at time 0, residual 0). When
+  // there's nothing past the first tap to measure (single-onset pattern
+  // the player completed) the round is trivially perfect.
   const meanAbsErrorMs = rhythmContribCount > 0
     ? rhythmErrorSum / rhythmContribCount
     : 0;
-  const rhythmScore = rhythmContribCount === 0
+  const rawRhythmScore = rhythmContribCount === 0
     ? (matchedCount === 0 ? 0 : 100)
     : Math.max(0, Math.round(100 - meanAbsErrorMs * SCORE_COEFFICIENT));
 
@@ -272,9 +269,17 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
   const hasTempoData = matchedCount >= 2;
   const slopeDevPct = Math.abs(tempoFactor - 1) * 100;
   const tempoPct = Math.round(slopeDevPct);
-  const tempoScore = hasTempoData
+  const rawTempoScore = hasTempoData
     ? Math.max(0, Math.round(100 - 4 * slopeDevPct))
     : 0;
+
+  // Completion ratio: fraction of expected onsets the player attempted at
+  // all (regardless of accuracy). Both subscores are scaled by this so an
+  // incomplete round is penalized proportionally — e.g. 6 of 8 onsets
+  // tapped perfectly yields rhythm 75, tempo 75, total 75.
+  const completionRatio = expectedCount > 0 ? matchedCount / expectedCount : 1;
+  const rhythmScore = Math.round(rawRhythmScore * completionRatio);
+  const tempoScore = matchedCount === 0 ? 0 : Math.round(rawTempoScore * completionRatio);
 
   // Direction label is independent of the slope-based score. It comes from
   // per-IOI stats so mid-pattern wobble (slope ≈ 1 but bouncing gaps)
@@ -338,7 +343,7 @@ export function scoreRound(expectedOnsets: number[], tapsSec: number[]): RoundRe
     tempoMsDev,
     tempoUnsteadyPct,
     tempoDirection,
-    completenessPct: Math.round(completeness * 100),
+    completenessPct: Math.round(completionRatio * 100),
     meanAbsErrorMs,
   };
 }

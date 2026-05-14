@@ -249,11 +249,10 @@ async function beginRound(
   );
   const echoStart = patternEnd + ECHO_GAP_SEC;
 
-  // Listen Again is only offered on the first scoring attempt of a
-  // non-daily Medium/Hard round. Practice doesn't qualify either since
-  // those rounds don't count.
-  const listenAgainAvailable =
-    !isDailyChallenge && !isReplay && !isPractice && difficulty !== 'easy';
+  // Listen Again is offered on the first scoring attempt of any non-daily
+  // round (Easy, Medium, or Hard). Practice doesn't qualify since those
+  // rounds don't count. One use per round.
+  const listenAgainAvailable = !isDailyChallenge && !isReplay && !isPractice;
 
   currentRound = {
     ctx,

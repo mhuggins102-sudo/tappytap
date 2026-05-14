@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { startRound, goToDailyScreen, goToArchiveScreen } from '../game/gameLoop';
 import { previewInstrument } from '../audio/scheduler';
 import {
@@ -35,77 +35,28 @@ const LEVELS: Array<{ id: Difficulty; label: string; blurb: string }> = [
 ];
 
 export function DifficultyPicker() {
-  // Lazy initializers so persisted values are present on the first render.
-  // Otherwise the Daily Challenge button (and toggles) flashes from its
-  // default appearance to the correct one as useEffect runs after mount —
-  // the .btn color transition makes the change visible.
+  // Lazy initializers so persisted values are present on the first render —
+  // avoids the Daily Challenge button (and toggles) flashing default-then-correct.
   const [scores, setScores] = useState<HighScores | null>(() => loadHighScores());
   const [dailyDone] = useState(() => loadDailyEntry(todayUtcDateString()) !== null);
-  const [liveFeedback, setLiveFeedback] = useState(() => loadSettings().liveFeedback);
   const [practiceMode, setPracticeMode] = useState(() => loadSettings().practiceMode);
-  const [grooveSounds, setGrooveSounds] = useState(() => loadSettings().soundTheme === 'groove');
-  const [instrument, setInstrument] = useState<Instrument>(() => loadSettings().instrument);
   const [showSettings, setShowSettings] = useState(false);
-  const settingsPanelRef = useRef<HTMLDivElement | null>(null);
-
-  // When the panel expands, slide it into view so the Instrument dropdown
-  // at the bottom of the panel is visible without the user having to
-  // scroll. Skipped on initial mount (showSettings starts false).
-  useEffect(() => {
-    if (!showSettings) return;
-    const el = settingsPanelRef.current;
-    if (!el) return;
-    // Defer one frame so the panel has laid out before we measure it.
-    const id = window.requestAnimationFrame(() => {
-      el.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [showSettings]);
-
-  const onChangeInstrument = (next: Instrument) => {
-    setInstrument(next);
-    saveSettings({ instrument: next });
-    // Play a quick 4-hit phrase so the player hears the new voice
-    // without leaving the settings panel.
-    void previewInstrument(next);
-  };
-
-  const onToggleLive = () => {
-    const next = !liveFeedback;
-    setLiveFeedback(next);
-    saveSettings({ liveFeedback: next });
-  };
-
-  const onTogglePractice = () => {
-    const next = !practiceMode;
-    setPracticeMode(next);
-    saveSettings({ practiceMode: next });
-  };
-
-  const onToggleGroove = () => {
-    const next = !grooveSounds;
-    setGrooveSounds(next);
-    saveSettings({ soundTheme: next ? 'groove' : 'tones' });
-  };
-
-  const onClearStats = () => {
-    const hasAny =
-      (scores?.easy?.games ?? 0) +
-        (scores?.medium?.games ?? 0) +
-        (scores?.hard?.games ?? 0) >
-      0;
-    if (!hasAny) return;
-    const ok = window.confirm(
-      'Clear best scores and lifetime averages for Easy, Medium, and Hard? Daily challenge history is kept.',
-    );
-    if (!ok) return;
-    clearHighScores();
-    setScores(loadHighScores());
-  };
 
   return (
     <div className="screen screen--picker">
-      <h2 className="subtitle">Choose your challenge</h2>
+      <div className="picker-header">
+        <h2 className="subtitle">Choose your challenge</h2>
+        <button
+          className="picker-header__gear"
+          type="button"
+          aria-label="Open settings"
+          aria-haspopup="dialog"
+          onClick={() => setShowSettings(true)}
+        >
+          <span aria-hidden="true">⚙</span>
+        </button>
+      </div>
+
       <div className="picker-grid">
         {LEVELS.map((lvl) => {
           const best = scores?.[lvl.id];
@@ -161,20 +112,155 @@ export function DifficultyPicker() {
         Past challenges
       </button>
 
-      <div className="settings">
-        <button
-          className="settings__trigger"
-          type="button"
-          aria-expanded={showSettings}
-          aria-controls="picker-settings-panel"
-          onClick={() => setShowSettings((s) => !s)}
-        >
-          <span className="settings__gear" aria-hidden="true">⚙</span>
-          <span>{showSettings ? 'Close settings' : 'Settings'}</span>
-        </button>
+      {showSettings && (
+        <SettingsModal
+          onClose={() => setShowSettings(false)}
+          scores={scores}
+          onClearStats={() => {
+            clearHighScores();
+            setScores(loadHighScores());
+          }}
+          onPracticeChange={(v) => setPracticeMode(v)}
+        />
+      )}
+    </div>
+  );
+}
 
-        {showSettings && (
-          <div className="settings__panel" id="picker-settings-panel" ref={settingsPanelRef}>
+interface SettingsModalProps {
+  onClose: () => void;
+  scores: HighScores | null;
+  onClearStats: () => void;
+  onPracticeChange: (v: boolean) => void;
+}
+
+function SettingsModal({ onClose, scores, onClearStats, onPracticeChange }: SettingsModalProps) {
+  // Re-read so the modal always shows current settings even if changed
+  // elsewhere; mutations route through saveSettings + local state so the
+  // toggles feel immediate.
+  const initial = loadSettings();
+  const [liveFeedback, setLiveFeedback] = useState(initial.liveFeedback);
+  const [practiceMode, setPracticeMode] = useState(initial.practiceMode);
+  const [grooveSounds, setGrooveSounds] = useState(initial.soundTheme === 'groove');
+  const [instrument, setInstrument] = useState<Instrument>(initial.instrument);
+  const [colorblind, setColorblind] = useState(initial.colorblind);
+  const [reduceMotion, setReduceMotion] = useState(initial.reduceMotion);
+
+  // Escape closes the modal (alongside the backdrop click and the X button).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const onChangeInstrument = (next: Instrument) => {
+    setInstrument(next);
+    saveSettings({ instrument: next });
+    void previewInstrument(next);
+  };
+
+  const onToggleLive = () => {
+    const next = !liveFeedback;
+    setLiveFeedback(next);
+    saveSettings({ liveFeedback: next });
+  };
+
+  const onTogglePractice = () => {
+    const next = !practiceMode;
+    setPracticeMode(next);
+    saveSettings({ practiceMode: next });
+    onPracticeChange(next);
+  };
+
+  const onToggleGroove = () => {
+    const next = !grooveSounds;
+    setGrooveSounds(next);
+    saveSettings({ soundTheme: next ? 'groove' : 'tones' });
+  };
+
+  const onToggleColorblind = () => {
+    const next = !colorblind;
+    setColorblind(next);
+    saveSettings({ colorblind: next });
+  };
+
+  const onToggleReduceMotion = () => {
+    const next = !reduceMotion;
+    setReduceMotion(next);
+    saveSettings({ reduceMotion: next });
+  };
+
+  const onClickClear = () => {
+    const hasAny =
+      (scores?.easy?.games ?? 0) +
+        (scores?.medium?.games ?? 0) +
+        (scores?.hard?.games ?? 0) >
+      0;
+    if (!hasAny) return;
+    const ok = window.confirm(
+      'Clear best scores and lifetime averages for Easy, Medium, and Hard? Daily challenge history is kept.',
+    );
+    if (!ok) return;
+    onClearStats();
+  };
+
+  const hasAnyStats =
+    (scores?.easy?.games ?? 0) +
+      (scores?.medium?.games ?? 0) +
+      (scores?.hard?.games ?? 0) >
+    0;
+
+  return (
+    <div className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div className="settings-modal__backdrop" onClick={onClose} />
+      <div className="settings-modal__panel">
+        <header className="settings-modal__header">
+          <h3 id="settings-title" className="settings-modal__title">Settings</h3>
+          <button
+            className="settings-modal__close"
+            type="button"
+            aria-label="Close settings"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </header>
+        <div className="settings-modal__body">
+          <section className="settings-section">
+            <h4 className="settings-section__title">Display</h4>
+            <SettingRow
+              label="Colorblind shapes"
+              hint="Add glyphs alongside colors"
+              on={colorblind}
+              onToggle={onToggleColorblind}
+            />
+            <SettingRow
+              label="Reduce motion"
+              hint="Suppress pulse and flash animations"
+              on={reduceMotion}
+              onToggle={onToggleReduceMotion}
+            />
+          </section>
+
+          <section className="settings-section">
+            <h4 className="settings-section__title">Sound</h4>
+            <SettingRow
+              label="Groove sounds"
+              hint="Drums / instruments instead of clicks"
+              on={grooveSounds}
+              onToggle={onToggleGroove}
+            />
+            <InstrumentRow
+              value={instrument}
+              onChange={onChangeInstrument}
+              disabled={!grooveSounds}
+            />
+          </section>
+
+          <section className="settings-section">
+            <h4 className="settings-section__title">Play</h4>
             <SettingRow
               label="Practice mode"
               hint="No scores saved"
@@ -188,28 +274,21 @@ export function DifficultyPicker() {
               onToggle={onToggleLive}
               disabled={!practiceMode}
             />
-            <SettingRow
-              label="Groove sounds"
-              hint="Drums / instruments instead of clicks"
-              on={grooveSounds}
-              onToggle={onToggleGroove}
-            />
-            <InstrumentRow
-              value={instrument}
-              onChange={onChangeInstrument}
-              disabled={!grooveSounds}
-            />
-            {(scores?.easy?.games || scores?.medium?.games || scores?.hard?.games) ? (
+          </section>
+
+          {hasAnyStats && (
+            <section className="settings-section">
+              <h4 className="settings-section__title">Data</h4>
               <button
                 className="settings__clear"
                 type="button"
-                onClick={onClearStats}
+                onClick={onClickClear}
               >
                 Clear best scores
               </button>
-            ) : null}
-          </div>
-        )}
+            </section>
+          )}
+        </div>
       </div>
     </div>
   );
