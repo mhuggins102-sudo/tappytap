@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Pattern, RoundResult, TapResult } from '../patterns/types';
 import { playTapSequence } from '../audio/scheduler';
-import { loadSettings } from '../lib/storage';
+import { loadSettings, type Instrument } from '../lib/storage';
 
 interface Props {
   pattern: Pattern;
@@ -12,9 +12,13 @@ interface Props {
   /** Groove index the original round was played with; reused so the
    *  playback sounds like what the player heard during the round. */
   grooveIdx: number;
+  /** Override the playback instrument. Pass-and-Play uses this so the
+   *  active player's instrument is used instead of the host's global
+   *  setting. Left undefined falls back to the saved settings. */
+  instrument?: Instrument;
 }
 
-export function TimelineCompare({ pattern, result, corrected, grooveIdx }: Props) {
+export function TimelineCompare({ pattern, result, corrected, grooveIdx, instrument }: Props) {
   const expected = pattern.onsets;
   const slope = result.tempoFactor || 1;
 
@@ -75,7 +79,7 @@ export function TimelineCompare({ pattern, result, corrected, grooveIdx }: Props
       .filter((t): t is number => t !== null)
       .map((t) => (corrected ? onTempo(t) : t));
     const settings = loadSettings();
-    void playTapSequence(taps, settings.instrument, grooveIdx);
+    void playTapSequence(taps, instrument ?? settings.instrument, grooveIdx);
   };
   const hasTaps = tapTimes.length > 0;
 

@@ -56,28 +56,57 @@ export function PassAndPlayRoundSummary({ state }: Props) {
           : `${winner === 'p1' ? p1Name : p2Name} wins the round`}
       </div>
 
-      <div className="pp-summary__scoreboard">
-        <div className="pp-summary__scoreboard-row">
-          <span className="pp-summary__scoreboard-name">{p1Name}</span>
-          <span className="pp-summary__scoreboard-wins">{match.p1Wins}</span>
-        </div>
-        <div className="pp-summary__scoreboard-row">
-          <span className="pp-summary__scoreboard-name">{p2Name}</span>
-          <span className="pp-summary__scoreboard-wins">{match.p2Wins}</span>
-        </div>
+      <details className="pp-summary__scoreboard">
+        <summary className="pp-summary__scoreboard-summary">
+          <div className="pp-summary__scoreboard-totals">
+            <div className="pp-summary__scoreboard-cell">
+              <span className="pp-summary__scoreboard-name">{p1Name}</span>
+              <span className="pp-summary__scoreboard-wins">{match.p1Wins}</span>
+            </div>
+            <div className="pp-summary__scoreboard-cell">
+              <span className="pp-summary__scoreboard-name">{p2Name}</span>
+              <span className="pp-summary__scoreboard-wins">{match.p2Wins}</span>
+            </div>
+          </div>
+          <span className="pp-summary__scoreboard-toggle" aria-hidden="true">
+            <span className="pp-summary__scoreboard-toggle-text">Round history</span>
+            <span className="pp-summary__scoreboard-toggle-chevron">▾</span>
+          </span>
+        </summary>
+        <ol className="pp-summary__history">
+          {match.history.map((o) => (
+            <li
+              key={o.roundIndex}
+              className={`pp-summary__history-row pp-summary__history-row--${o.winner}`}
+            >
+              <span className="pp-summary__history-idx">R{o.roundIndex + 1}</span>
+              <span
+                className={`pp-summary__history-score ${o.winner === 'p1' ? 'pp-summary__history-score--win' : ''}`}
+              >
+                {o.p1Result.totalScore}
+              </span>
+              <span className="pp-summary__history-mid">vs</span>
+              <span
+                className={`pp-summary__history-score ${o.winner === 'p2' ? 'pp-summary__history-score--win' : ''}`}
+              >
+                {o.p2Result.totalScore}
+              </span>
+              <span className="pp-summary__history-diff">{o.difficulty}</span>
+            </li>
+          ))}
+        </ol>
         {match.ties > 0 && (
-          <div className="pp-summary__scoreboard-row pp-summary__scoreboard-row--tie">
-            <span className="pp-summary__scoreboard-name">Ties</span>
-            <span className="pp-summary__scoreboard-wins">{match.ties}</span>
+          <div className="pp-summary__history-tie-note">
+            {match.ties} {match.ties === 1 ? 'tied round' : 'tied rounds'} — no point awarded
           </div>
         )}
-      </div>
+      </details>
 
       <div className="pp-summary__actions">
         <button
           className="btn btn--primary"
           type="button"
-          onClick={() => void advancePassAndPlayRound()}
+          onClick={advancePassAndPlayRound}
         >
           {advanceLabel}
         </button>
