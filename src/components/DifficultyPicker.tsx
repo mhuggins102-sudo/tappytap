@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { startRound, goToDailyScreen, goToArchiveScreen } from '../game/gameLoop';
+import { useEffect, useRef, useState } from 'react';
+import { startRound, goToDailyScreen, goToArchiveScreen, goToPassAndPlaySetup } from '../game/gameLoop';
 import { previewInstrument } from '../audio/scheduler';
 import {
   clearHighScores,
@@ -28,10 +28,25 @@ import { loadDailyEntry } from '../lib/storage';
 import { todayUtcDateString } from '../patterns/daily';
 import type { Difficulty } from '../patterns/types';
 
-const LEVELS: Array<{ id: Difficulty; label: string; blurb: string }> = [
-  { id: 'easy', label: 'Easy', blurb: 'Short 3-, 4-, or 5-beat\nmotif on loop' },
-  { id: 'medium', label: 'Medium', blurb: 'Free-form lines, repeated motifs,\nor classic figures (tresillo, habanera)' },
-  { id: 'hard', label: 'Hard', blurb: '16th-note syncopation, plus\nclassic figures (bossa, dembow)' },
+const LEVELS: Array<{ id: Difficulty; label: string; description: string }> = [
+  {
+    id: 'easy',
+    label: 'Easy',
+    description:
+      'A short 3-, 4-, or 5-beat motif looped a few times. Steady pulse with no syncopation — the easiest level. Tempo varies up to ±15% between rounds.',
+  },
+  {
+    id: 'medium',
+    label: 'Medium',
+    description:
+      'Mostly free-form 8th-note rhythms. Sometimes a denser motif played twice, or a classic figure like tresillo, habanera, cascara, or mozambique. Tempo varies up to ±20%. Occasionally surprises with a 3-measure round, a sparse pattern, or a density ramp from 8ths into 16ths.',
+  },
+  {
+    id: 'hard',
+    label: 'Hard',
+    description:
+      '16th-note syncopation — notes shift off the beat to create tension. Sometimes a classic figure like bossa, dembow, songo, or cha-cha-cha. Tempo varies up to ±25%. Occasionally a 3-measure round or a sparse-rest surprise.',
+  },
 ];
 
 export function DifficultyPicker() {
@@ -57,40 +72,15 @@ export function DifficultyPicker() {
         </button>
       </div>
 
-      <div className="picker-grid">
-        {LEVELS.map((lvl) => {
-          const best = scores?.[lvl.id];
-          return (
-            <button
-              key={lvl.id}
-              className="picker-card"
-              type="button"
-              onClick={() => void startRound(lvl.id)}
-            >
-              <div className="picker-card__primary">
-                <div className="picker-card__label">{lvl.label}</div>
-                <div className="picker-card__blurb">{lvl.blurb}</div>
-                <div className="picker-card__best">
-                  {best ? `Best ${best.bestScore}` : 'No best yet'}
-                </div>
-              </div>
-              {best && best.games > 0 && (
-                <div className="picker-card__stats">
-                  <div className="picker-card__avg">
-                    Avg {Math.round(best.totalScore / best.games)}
-                  </div>
-                  <div className="picker-card__sub">
-                    {Math.round(best.totalRhythm / best.games)}r · {Math.round(best.totalTempo / best.games)}t
-                  </div>
-                  <div className="picker-card__sub">
-                    {best.games} {best.games === 1 ? 'play' : 'plays'}
-                  </div>
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <SoloSection scores={scores} />
+
+      <button
+        className="btn btn--pass-and-play"
+        type="button"
+        onClick={() => goToPassAndPlaySetup()}
+      >
+        Pass and Play
+      </button>
 
       <button
         className={`btn btn--daily ${dailyDone ? 'btn--done' : ''}`}
@@ -124,6 +114,81 @@ export function DifficultyPicker() {
         />
       )}
     </div>
+  );
+}
+
+interface SoloSectionProps {
+  scores: HighScores | null;
+}
+
+function SoloSection({ scores }: SoloSectionProps) {
+  // Only one info popover is open at a time. Tapping outside dismisses.
+  const [openInfo, setOpenInfo] = useState<Difficulty | null>(null);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!openInfo) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpenInfo(null);
+    };
+    window.addEventListener('mousedown', onDown);
+    return () => window.removeEventListener('mousedown', onDown);
+  }, [openInfo]);
+
+  return (
+    <section className="solo-section" ref={ref}>
+      <h3 className="solo-section__title">Solo</h3>
+      <div className="picker-grid">
+        {LEVELS.map((lvl) => {
+          const best = scores?.[lvl.id];
+          const isOpen = openInfo === lvl.id;
+          return (
+            <div key={lvl.id} className="picker-card-wrapper">
+              <button
+                className="picker-card"
+                type="button"
+                onClick={() => void startRound(lvl.id)}
+              >
+                <div className="picker-card__primary">
+                  <div className="picker-card__label">{lvl.label}</div>
+                  <div className="picker-card__best">
+                    {best ? `Best ${best.bestScore}` : 'No best yet'}
+                  </div>
+                </div>
+                {best && best.games > 0 && (
+                  <div className="picker-card__stats">
+                    <div className="picker-card__avg">
+                      Avg {Math.round(best.totalScore / best.games)}
+                    </div>
+                    <div className="picker-card__sub">
+                      {Math.round(best.totalRhythm / best.games)}r · {Math.round(best.totalTempo / best.games)}t
+                    </div>
+                    <div className="picker-card__sub">
+                      {best.games} {best.games === 1 ? 'play' : 'plays'}
+                    </div>
+                  </div>
+                )}
+              </button>
+              <button
+                className="picker-card__info"
+                type="button"
+                aria-label={`About ${lvl.label}`}
+                aria-expanded={isOpen}
+                onClick={() => setOpenInfo((prev) => (prev === lvl.id ? null : lvl.id))}
+              >
+                i
+              </button>
+              {isOpen && (
+                <div className="picker-card__popover" role="tooltip">
+                  <strong className="picker-card__popover-title">{lvl.label}</strong>
+                  <span>{lvl.description}</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

@@ -5,6 +5,7 @@ const DAILY_KEY = 'tappytap.daily'; // legacy: single-day entry. Migrated to DAI
 const DAILY_HISTORY_KEY = 'tappytap.dailyHistory';
 const PLAYER_ID_KEY = 'tappytap.playerId';
 const SETTINGS_KEY = 'tappytap.settings';
+const PASS_AND_PLAY_DEFAULTS_KEY = 'tappytap.passAndPlayDefaults';
 const VERSION = 2;
 // Settings has its own version so we can ship new defaults (and add fields
 // like `instrument`) without invalidating high-score and daily-challenge data.
@@ -254,4 +255,39 @@ export function saveSettings(next: Partial<Omit<Settings, 'v'>>): Settings {
     window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT));
   }
   return merged;
+}
+
+/**
+ * Pass-and-Play setup defaults — persisted across matches so a returning
+ * host doesn't re-type names or pick instruments every time. The match
+ * itself is ephemeral; only the form prefills are saved here.
+ */
+export interface PassAndPlayDefaults {
+  p1Name: string;
+  p2Name: string;
+  p1Instrument: Instrument;
+  p2Instrument: Instrument;
+  difficulty: Difficulty | 'random';
+  grooveSounds: boolean;
+}
+
+const DEFAULT_PASS_AND_PLAY_DEFAULTS: PassAndPlayDefaults = {
+  p1Name: '',
+  p2Name: '',
+  p1Instrument: 'drums',
+  p2Instrument: 'marimba',
+  difficulty: 'random',
+  grooveSounds: true,
+};
+
+export function loadPassAndPlayDefaults(): PassAndPlayDefaults {
+  const parsed = safeParse<Partial<PassAndPlayDefaults>>(
+    localStorage.getItem(PASS_AND_PLAY_DEFAULTS_KEY),
+  );
+  if (!parsed) return { ...DEFAULT_PASS_AND_PLAY_DEFAULTS };
+  return { ...DEFAULT_PASS_AND_PLAY_DEFAULTS, ...parsed };
+}
+
+export function savePassAndPlayDefaults(next: PassAndPlayDefaults): void {
+  localStorage.setItem(PASS_AND_PLAY_DEFAULTS_KEY, JSON.stringify(next));
 }

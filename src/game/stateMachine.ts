@@ -1,6 +1,17 @@
 import type { Difficulty, Judgment, Pattern, RoundResult } from '../patterns/types';
+import type { Instrument } from '../lib/storage';
 
-export type Screen = 'start' | 'picker' | 'game' | 'score' | 'daily' | 'archive';
+export type Screen =
+  | 'start'
+  | 'picker'
+  | 'game'
+  | 'score'
+  | 'daily'
+  | 'archive'
+  | 'passAndPlaySetup'
+  | 'passAndPlayInterlude'
+  | 'passAndPlayRoundSummary'
+  | 'passAndPlayGameOver';
 
 export interface TapFlash {
   judgment: Judgment;
@@ -22,6 +33,55 @@ export type Phase =
       isPractice: boolean;
     }
   | { kind: 'scoring'; pattern: Pattern; result: RoundResult };
+
+export type PlayerId = 'p1' | 'p2';
+
+export interface PassAndPlayConfig {
+  p1Name: string;
+  p2Name: string;
+  p1Instrument: Instrument;
+  p2Instrument: Instrument;
+  /** When 'random', a fresh Difficulty is rolled for each round. */
+  difficulty: Difficulty | 'random';
+  grooveSounds: boolean;
+}
+
+export interface PassAndPlayRoundOutcome {
+  roundIndex: number; // 0-based, 0..9
+  difficulty: Difficulty;
+  firstPlayer: PlayerId;
+  p1Result: RoundResult;
+  p2Result: RoundResult;
+  winner: PlayerId | 'tie';
+}
+
+/**
+ * Live state for an in-progress Pass-and-Play match. Created when the
+ * host taps "Start Game" in the setup modal; cleared when they navigate
+ * out of the match (game over screen → home, or early quit). Not
+ * persisted across browser refresh — a refresh ends the match.
+ */
+export interface PassAndPlayMatch {
+  config: PassAndPlayConfig;
+  // Cumulative tallies across rounds played so far.
+  p1Wins: number;
+  p2Wins: number;
+  ties: number;
+  history: PassAndPlayRoundOutcome[];
+  // Round in progress.
+  currentRoundIndex: number; // 0..9
+  currentRoundDifficulty: Difficulty;
+  currentRoundPattern: Pattern;
+  currentRoundGrooveIdx: number;
+  /** Which player kicks off this round. Alternates each round. */
+  currentRoundFirstPlayer: PlayerId;
+  /** The player whose turn is in progress (first then second). */
+  currentRoundActivePlayer: PlayerId;
+  /** First player's result for the current round, stashed so the
+   * interlude screen can show the score-to-beat and the round summary
+   * can pair it with the second player's result. */
+  currentRoundFirstResult: RoundResult | null;
+}
 
 export interface GameState {
   screen: Screen;
@@ -54,6 +114,8 @@ export interface GameState {
   listenAgainAvailable: boolean;
   /** Set once the player taps the Listen Again button. */
   listenAgainUsed: boolean;
+  /** Non-null while a Pass-and-Play match is in progress. */
+  passAndPlay: PassAndPlayMatch | null;
 }
 
 export const INITIAL_STATE: GameState = {
@@ -71,4 +133,5 @@ export const INITIAL_STATE: GameState = {
   dailyPreviousScore: null,
   listenAgainAvailable: false,
   listenAgainUsed: false,
+  passAndPlay: null,
 };

@@ -21,7 +21,14 @@ import {
 } from '../lib/storage';
 import { startCapture } from './inputCapture';
 import { Store } from './store';
-import { INITIAL_STATE, type GameState } from './stateMachine';
+import {
+  INITIAL_STATE,
+  type GameState,
+  type PassAndPlayConfig,
+  type PassAndPlayMatch,
+  type PassAndPlayRoundOutcome,
+  type PlayerId,
+} from './stateMachine';
 
 export const gameStore = new Store<GameState>(INITIAL_STATE);
 
@@ -132,6 +139,20 @@ export function goToArchiveScreen(): void {
   });
 }
 
+export function goToPassAndPlaySetup(): void {
+  clearTimers();
+  teardownCapture();
+  gameStore.set({
+    ...gameStore.get(),
+    screen: 'passAndPlaySetup',
+    isDailyChallenge: false,
+    dailyDateStr: null,
+    phase: { kind: 'idle' },
+    dailyImprovedOnRetry: false,
+    dailyPreviousScore: null,
+  });
+}
+
 export async function dismissStart(): Promise<void> {
   await ensureAudioEngine();
   gameStore.set({ ...gameStore.get(), screen: 'picker' });
@@ -214,6 +235,14 @@ export async function startDailyRound(forDate?: string): Promise<void> {
   await beginRound(eng.ctx, pattern, pattern.difficulty, true, false, undefined, dateStr);
 }
 
+/** Override sound + instrument for the round (used by Pass-and-Play so
+ * each player hears their own instrument). When set, isPractice is
+ * always false regardless of the global setting. */
+interface BeginRoundOverride {
+  instrument: Instrument;
+  soundTheme: SoundTheme;
+}
+
 async function beginRound(
   ctx: AudioContext,
   pattern: Pattern,
@@ -222,6 +251,7 @@ async function beginRound(
   isReplay: boolean,
   forcedGrooveIdx?: number,
   dailyDateStr?: string,
+  override?: BeginRoundOverride,
 ): Promise<void> {
   clearTimers();
   teardownCapture();
@@ -229,7 +259,11 @@ async function beginRound(
   currentJudgments = [];
 
   const settings = loadSettings();
-  const isPractice = !isDailyChallenge && settings.practiceMode;
+  // P&P overrides force practice mode off — each turn is competitive
+  // even though it doesn't write to the lifetime stats store.
+  const isPractice = override ? false : !isDailyChallenge && settings.practiceMode;
+  const instrument = override?.instrument ?? settings.instrument;
+  const soundTheme = override?.soundTheme ?? settings.soundTheme;
 
   const now = ctx.currentTime;
   const leadIn = 0.15;
@@ -238,20 +272,20 @@ async function beginRound(
 
   const patternStart = countdownEnd;
   const grooveIdx =
-    forcedGrooveIdx !== undefined ? forcedGrooveIdx : pickGrooveIndex(settings.instrument);
+    forcedGrooveIdx !== undefined ? forcedGrooveIdx : pickGrooveIndex(instrument);
   const patternEnd = schedulePattern(
     ctx,
     pattern,
     patternStart,
-    settings.soundTheme,
-    settings.instrument,
+    soundTheme,
+    instrument,
     grooveIdx,
   );
   const echoStart = patternEnd + ECHO_GAP_SEC;
 
   // Listen Again is offered on the first scoring attempt of any non-daily
   // round (Easy, Medium, or Hard). Practice doesn't qualify since those
-  // rounds don't count. One use per round.
+  // rounds don't count. One use per round. P&P rounds also get it.
   const listenAgainAvailable = !isDailyChallenge && !isReplay && !isPractice;
 
   currentRound = {
@@ -260,19 +294,19 @@ async function beginRound(
     difficulty,
     isDailyChallenge,
     isPractice,
-    soundTheme: settings.soundTheme,
-    instrument: settings.instrument,
+    soundTheme,
+    instrument,
     grooveIdx,
   };
 
   gameStore.set({
+    ...gameStore.get(),
     screen: 'game',
     difficulty,
     isDailyChallenge,
     dailyDateStr: dailyDateStr ?? null,
     isPractice,
     isReplay,
-    lastResult: gameStore.get().lastResult,
     lastPattern: pattern,
     lastGrooveIdx: grooveIdx,
     dailyImprovedOnRetry: false,
@@ -557,13 +591,15 @@ function finalizeRound(
   const result = scoreRound(pattern.onsets, currentTaps);
   const state = gameStore.get();
   const isReplay = state.isReplay;
+  const isPassAndPlay = state.passAndPlay !== null;
 
   let dailyImprovedOnRetry = false;
   let dailyPreviousScore: number | null = null;
-  // Replays of a previous beat don't update lifetime stats — only the first
-  // attempt counts. Daily-challenge saves use the round's stored date so
-  // archived days update the history map for that date, not today.
-  if (!isPractice && !isReplay) {
+  // Replays, practice rounds, and Pass-and-Play turns don't update
+  // lifetime stats — only fresh solo attempts count. Daily-challenge
+  // saves use the round's stored date so archived days update the
+  // history map for that date, not today.
+  if (!isPractice && !isReplay && !isPassAndPlay) {
     if (isDailyChallenge) {
       const dateStr = state.dailyDateStr ?? todayUtcDateString();
       const save = saveDailyEntry({
@@ -605,4 +641,237 @@ export function playAgain(): void {
     return;
   }
   void startRound(state.difficulty);
+}
+
+// === Pass and Play ===
+
+const PASS_AND_PLAY_ROUNDS = 10;
+
+function rollRandomDifficulty(): Difficulty {
+  const r = Math.random();
+  if (r < 1 / 3) return 'easy';
+  if (r < 2 / 3) return 'medium';
+  return 'hard';
+}
+
+function resolveDifficulty(config: PassAndPlayConfig): Difficulty {
+  return config.difficulty === 'random' ? rollRandomDifficulty() : config.difficulty;
+}
+
+function overrideFor(config: PassAndPlayConfig, player: PlayerId): BeginRoundOverride {
+  return {
+    instrument: player === 'p1' ? config.p1Instrument : config.p2Instrument,
+    soundTheme: config.grooveSounds ? 'groove' : 'tones',
+  };
+}
+
+/**
+ * Player-vs-player clinch check. Returns the player who can no longer be
+ * caught (more wins than the opponent could possibly gain over the
+ * remaining rounds), or null while the match is still contested.
+ */
+function checkPassAndPlayClinch(match: PassAndPlayMatch): PlayerId | null {
+  const remaining = PASS_AND_PLAY_ROUNDS - match.history.length;
+  if (match.p1Wins > match.p2Wins + remaining) return 'p1';
+  if (match.p2Wins > match.p1Wins + remaining) return 'p2';
+  return null;
+}
+
+/** Kick off a fresh Pass-and-Play match: generate round-1 pattern, set
+ * up match state, hand off to Player 1's turn. */
+export async function startPassAndPlayMatch(config: PassAndPlayConfig): Promise<void> {
+  kickAudioSync();
+  const eng = await ensureAudioEngine();
+  const difficulty = resolveDifficulty(config);
+  const pattern = generatePattern(difficulty, rngFromRandom());
+  const grooveIdx = pickGrooveIndex(config.p1Instrument);
+
+  const match: PassAndPlayMatch = {
+    config,
+    p1Wins: 0,
+    p2Wins: 0,
+    ties: 0,
+    history: [],
+    currentRoundIndex: 0,
+    currentRoundDifficulty: difficulty,
+    currentRoundPattern: pattern,
+    currentRoundGrooveIdx: grooveIdx,
+    currentRoundFirstPlayer: 'p1',
+    currentRoundActivePlayer: 'p1',
+    currentRoundFirstResult: null,
+  };
+
+  gameStore.set({ ...gameStore.get(), passAndPlay: match, lastResult: null });
+
+  await beginRound(
+    eng.ctx,
+    pattern,
+    difficulty,
+    false,
+    false,
+    grooveIdx,
+    undefined,
+    overrideFor(config, 'p1'),
+  );
+}
+
+/**
+ * Move from the first player's score screen into the "pass to the next
+ * player" interlude. Stashes their result so the round-end screen and
+ * the interlude itself can show the score-to-beat.
+ */
+export function passToNextPlayer(): void {
+  const state = gameStore.get();
+  if (!state.passAndPlay || !state.lastResult) return;
+  gameStore.set({
+    ...state,
+    screen: 'passAndPlayInterlude',
+    passAndPlay: {
+      ...state.passAndPlay,
+      currentRoundFirstResult: state.lastResult,
+    },
+  });
+}
+
+/** Interlude tap → second player's turn begins (same pattern). */
+export async function startNextPlayerTurn(): Promise<void> {
+  const state = gameStore.get();
+  if (!state.passAndPlay) return;
+  const match = state.passAndPlay;
+  const nextPlayer: PlayerId = match.currentRoundFirstPlayer === 'p1' ? 'p2' : 'p1';
+  const nextInstrument =
+    nextPlayer === 'p1' ? match.config.p1Instrument : match.config.p2Instrument;
+  // Fresh groove index so the second player gets their own instrument's
+  // groove rather than inheriting the first player's.
+  const nextGrooveIdx = pickGrooveIndex(nextInstrument);
+
+  kickAudioSync();
+  const eng = await ensureAudioEngine();
+
+  gameStore.set({
+    ...state,
+    passAndPlay: {
+      ...match,
+      currentRoundActivePlayer: nextPlayer,
+      currentRoundGrooveIdx: nextGrooveIdx,
+    },
+  });
+
+  await beginRound(
+    eng.ctx,
+    match.currentRoundPattern,
+    match.currentRoundDifficulty,
+    false,
+    false,
+    nextGrooveIdx,
+    undefined,
+    overrideFor(match.config, nextPlayer),
+  );
+}
+
+/** End-of-round button from the second player's score screen. Pairs the
+ * two results, awards the round point (or tie), and routes to the round
+ * summary screen. */
+export function endPassAndPlayRound(): void {
+  const state = gameStore.get();
+  const match = state.passAndPlay;
+  if (!match) return;
+  const firstResult = match.currentRoundFirstResult;
+  const secondResult = state.lastResult;
+  if (!firstResult || !secondResult) return;
+  const firstPlayer = match.currentRoundFirstPlayer;
+  const p1Result = firstPlayer === 'p1' ? firstResult : secondResult;
+  const p2Result = firstPlayer === 'p1' ? secondResult : firstResult;
+
+  let winner: PlayerId | 'tie';
+  if (p1Result.totalScore > p2Result.totalScore) winner = 'p1';
+  else if (p2Result.totalScore > p1Result.totalScore) winner = 'p2';
+  else winner = 'tie';
+
+  const outcome: PassAndPlayRoundOutcome = {
+    roundIndex: match.currentRoundIndex,
+    difficulty: match.currentRoundDifficulty,
+    firstPlayer,
+    p1Result,
+    p2Result,
+    winner,
+  };
+
+  gameStore.set({
+    ...state,
+    screen: 'passAndPlayRoundSummary',
+    passAndPlay: {
+      ...match,
+      p1Wins: winner === 'p1' ? match.p1Wins + 1 : match.p1Wins,
+      p2Wins: winner === 'p2' ? match.p2Wins + 1 : match.p2Wins,
+      ties: winner === 'tie' ? match.ties + 1 : match.ties,
+      history: [...match.history, outcome],
+      // Clear first-result; the round is now in history.
+      currentRoundFirstResult: null,
+    },
+  });
+}
+
+/** From the round-summary screen, advance to either the next round or
+ * the game-over screen (clinched or all 10 rounds played). */
+export async function advancePassAndPlayRound(): Promise<void> {
+  const state = gameStore.get();
+  if (!state.passAndPlay) return;
+  const match = state.passAndPlay;
+
+  const clinched = checkPassAndPlayClinch(match);
+  if (clinched || match.history.length >= PASS_AND_PLAY_ROUNDS) {
+    gameStore.set({ ...state, screen: 'passAndPlayGameOver' });
+    return;
+  }
+
+  const nextRoundIndex = match.history.length; // 0-indexed
+  const nextFirstPlayer: PlayerId = match.currentRoundFirstPlayer === 'p1' ? 'p2' : 'p1';
+  const nextDifficulty = resolveDifficulty(match.config);
+  const nextPattern = generatePattern(nextDifficulty, rngFromRandom());
+  const nextInstrument =
+    nextFirstPlayer === 'p1' ? match.config.p1Instrument : match.config.p2Instrument;
+  const nextGrooveIdx = pickGrooveIndex(nextInstrument);
+
+  kickAudioSync();
+  const eng = await ensureAudioEngine();
+
+  gameStore.set({
+    ...state,
+    lastResult: null,
+    passAndPlay: {
+      ...match,
+      currentRoundIndex: nextRoundIndex,
+      currentRoundDifficulty: nextDifficulty,
+      currentRoundPattern: nextPattern,
+      currentRoundGrooveIdx: nextGrooveIdx,
+      currentRoundFirstPlayer: nextFirstPlayer,
+      currentRoundActivePlayer: nextFirstPlayer,
+      currentRoundFirstResult: null,
+    },
+  });
+
+  await beginRound(
+    eng.ctx,
+    nextPattern,
+    nextDifficulty,
+    false,
+    false,
+    nextGrooveIdx,
+    undefined,
+    overrideFor(match.config, nextFirstPlayer),
+  );
+}
+
+/** Exit the in-progress match and return home. Discards all match state. */
+export function exitPassAndPlay(): void {
+  clearTimers();
+  teardownCapture();
+  gameStore.set({
+    ...gameStore.get(),
+    screen: 'picker',
+    passAndPlay: null,
+    phase: { kind: 'idle' },
+    lastResult: null,
+  });
 }
