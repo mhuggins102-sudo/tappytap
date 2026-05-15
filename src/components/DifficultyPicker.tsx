@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { startRound, goToDailyScreen, goToArchiveScreen, goToPassAndPlaySetup } from '../game/gameLoop';
 import { previewInstrument } from '../audio/scheduler';
 import {
@@ -60,7 +60,7 @@ export function DifficultyPicker() {
   return (
     <div className="screen screen--picker">
       <div className="picker-header">
-        <h2 className="subtitle">Choose your challenge</h2>
+        <h2 className="subtitle">Choose game mode</h2>
         <button
           className="picker-header__gear"
           type="button"
@@ -73,34 +73,7 @@ export function DifficultyPicker() {
       </div>
 
       <SoloSection scores={scores} />
-
-      <button
-        className="btn btn--pass-and-play"
-        type="button"
-        onClick={() => goToPassAndPlaySetup()}
-      >
-        Pass and Play
-      </button>
-
-      <button
-        className={`btn btn--daily ${dailyDone ? 'btn--done' : ''}`}
-        type="button"
-        onClick={() => goToDailyScreen()}
-        disabled={practiceMode}
-        title={practiceMode ? 'Disable Practice Mode to play the daily' : undefined}
-      >
-        Daily challenge {dailyDone ? '✓' : ''}
-      </button>
-
-      <button
-        className="btn btn--secondary"
-        type="button"
-        onClick={goToArchiveScreen}
-        disabled={practiceMode}
-        title={practiceMode ? 'Disable Practice Mode to access archives' : undefined}
-      >
-        Past challenges
-      </button>
+      <CompeteSection dailyDone={dailyDone} practiceMode={practiceMode} />
 
       {showSettings && (
         <SettingsModal
@@ -117,13 +90,72 @@ export function DifficultyPicker() {
   );
 }
 
+/** Shared shape for a card-style "mode" option in both Solo and Compete. */
+interface ModeCardProps {
+  id: string;
+  label: string;
+  description: string;
+  onStart: () => void;
+  isOpen: boolean;
+  onToggleInfo: () => void;
+  disabled?: boolean;
+  /** Optional content rendered in the main label row (e.g. best score). */
+  primaryHint?: ReactNode;
+  /** Optional right-aligned stats block. */
+  stats?: ReactNode;
+}
+
+function ModeCard({
+  label,
+  description,
+  onStart,
+  isOpen,
+  onToggleInfo,
+  disabled,
+  primaryHint,
+  stats,
+}: ModeCardProps) {
+  return (
+    <div className="picker-card-wrapper">
+      <button
+        className="picker-card"
+        type="button"
+        onClick={onStart}
+        disabled={disabled}
+      >
+        <div className="picker-card__primary">
+          <div className="picker-card__label">{label}</div>
+          {primaryHint && <div className="picker-card__best">{primaryHint}</div>}
+        </div>
+        {stats && <div className="picker-card__stats">{stats}</div>}
+      </button>
+      <button
+        className="picker-card__info"
+        type="button"
+        aria-label={`About ${label}`}
+        aria-expanded={isOpen}
+        onClick={onToggleInfo}
+      >
+        <span className="picker-card__info-icon" aria-hidden="true">i</span>
+      </button>
+      {isOpen && (
+        <div className="picker-card__popover" role="tooltip">
+          <strong className="picker-card__popover-title">{label}</strong>
+          <span>{description}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface SoloSectionProps {
   scores: HighScores | null;
 }
 
 function SoloSection({ scores }: SoloSectionProps) {
-  // Only one info popover is open at a time. Tapping outside dismisses.
-  const [openInfo, setOpenInfo] = useState<Difficulty | null>(null);
+  // Only one info popover is open at a time across the whole picker —
+  // shared state across Solo and Compete sections via a string id.
+  const [openInfo, setOpenInfo] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -136,27 +168,24 @@ function SoloSection({ scores }: SoloSectionProps) {
   }, [openInfo]);
 
   return (
-    <section className="solo-section" ref={ref}>
-      <h3 className="solo-section__title">Solo</h3>
+    <section className="mode-section" ref={ref}>
+      <h3 className="mode-section__title">Solo</h3>
       <div className="picker-grid">
         {LEVELS.map((lvl) => {
           const best = scores?.[lvl.id];
-          const isOpen = openInfo === lvl.id;
           return (
-            <div key={lvl.id} className="picker-card-wrapper">
-              <button
-                className="picker-card"
-                type="button"
-                onClick={() => void startRound(lvl.id)}
-              >
-                <div className="picker-card__primary">
-                  <div className="picker-card__label">{lvl.label}</div>
-                  <div className="picker-card__best">
-                    {best ? `Best ${best.bestScore}` : 'No best yet'}
-                  </div>
-                </div>
-                {best && best.games > 0 && (
-                  <div className="picker-card__stats">
+            <ModeCard
+              key={lvl.id}
+              id={lvl.id}
+              label={lvl.label}
+              description={lvl.description}
+              onStart={() => void startRound(lvl.id)}
+              isOpen={openInfo === lvl.id}
+              onToggleInfo={() => setOpenInfo((p) => (p === lvl.id ? null : lvl.id))}
+              primaryHint={best ? `Best ${best.bestScore}` : 'No best yet'}
+              stats={
+                best && best.games > 0 ? (
+                  <>
                     <div className="picker-card__avg">
                       Avg {Math.round(best.totalScore / best.games)}
                     </div>
@@ -166,27 +195,86 @@ function SoloSection({ scores }: SoloSectionProps) {
                     <div className="picker-card__sub">
                       {best.games} {best.games === 1 ? 'play' : 'plays'}
                     </div>
-                  </div>
-                )}
-              </button>
-              <button
-                className="picker-card__info"
-                type="button"
-                aria-label={`About ${lvl.label}`}
-                aria-expanded={isOpen}
-                onClick={() => setOpenInfo((prev) => (prev === lvl.id ? null : lvl.id))}
-              >
-                i
-              </button>
-              {isOpen && (
-                <div className="picker-card__popover" role="tooltip">
-                  <strong className="picker-card__popover-title">{lvl.label}</strong>
-                  <span>{lvl.description}</span>
-                </div>
-              )}
-            </div>
+                  </>
+                ) : null
+              }
+            />
           );
         })}
+      </div>
+    </section>
+  );
+}
+
+interface CompeteSectionProps {
+  dailyDone: boolean;
+  practiceMode: boolean;
+}
+
+const COMPETE_DESCRIPTIONS: Record<'pp' | 'daily' | 'archive', { label: string; description: string }> = {
+  pp: {
+    label: 'Pass and Play',
+    description:
+      'Two players take turns on one device over 10 rounds. Each round both players hear the same pattern; higher Overall score wins the round. Tied rounds award no point (first to 5 wins). Names and per-player instruments are optional. The match is ephemeral — refresh ends it.',
+  },
+  daily: {
+    label: 'Daily Challenge',
+    description:
+      'One deterministic pattern per UTC day. Everyone playing today hears the same beat — share your score with friends. Up to two attempts per day; only the better score is recorded.',
+  },
+  archive: {
+    label: 'Past Challenges',
+    description:
+      'Browse and replay daily challenges from earlier days. Each day still allows up to two attempts if you haven’t used them. Played days show your saved score and rank.',
+  },
+};
+
+function CompeteSection({ dailyDone, practiceMode }: CompeteSectionProps) {
+  const [openInfo, setOpenInfo] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!openInfo) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpenInfo(null);
+    };
+    window.addEventListener('mousedown', onDown);
+    return () => window.removeEventListener('mousedown', onDown);
+  }, [openInfo]);
+
+  return (
+    <section className="mode-section" ref={ref}>
+      <h3 className="mode-section__title">Compete</h3>
+      <div className="picker-grid">
+        <ModeCard
+          id="pp"
+          label={COMPETE_DESCRIPTIONS.pp.label}
+          description={COMPETE_DESCRIPTIONS.pp.description}
+          onStart={() => goToPassAndPlaySetup()}
+          isOpen={openInfo === 'pp'}
+          onToggleInfo={() => setOpenInfo((p) => (p === 'pp' ? null : 'pp'))}
+          primaryHint="2 players, 10 rounds"
+        />
+        <ModeCard
+          id="daily"
+          label={COMPETE_DESCRIPTIONS.daily.label}
+          description={COMPETE_DESCRIPTIONS.daily.description}
+          onStart={() => goToDailyScreen()}
+          isOpen={openInfo === 'daily'}
+          onToggleInfo={() => setOpenInfo((p) => (p === 'daily' ? null : 'daily'))}
+          disabled={practiceMode}
+          primaryHint={dailyDone ? 'Today’s done ✓' : 'One beat per day'}
+        />
+        <ModeCard
+          id="archive"
+          label={COMPETE_DESCRIPTIONS.archive.label}
+          description={COMPETE_DESCRIPTIONS.archive.description}
+          onStart={() => goToArchiveScreen()}
+          isOpen={openInfo === 'archive'}
+          onToggleInfo={() => setOpenInfo((p) => (p === 'archive' ? null : 'archive'))}
+          disabled={practiceMode}
+          primaryHint="Replay earlier days"
+        />
       </div>
     </section>
   );

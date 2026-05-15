@@ -716,45 +716,46 @@ export async function startPassAndPlayMatch(config: PassAndPlayConfig): Promise<
 }
 
 /**
- * Move from the first player's score screen into the "pass to the next
- * player" interlude. Stashes their result so the round-end screen and
- * the interlude itself can show the score-to-beat.
+ * From the first player's score screen: stash their result and route to
+ * the interlude. The interlude itself handles starting the second
+ * player's turn when they tap to begin.
  */
 export function passToNextPlayer(): void {
   const state = gameStore.get();
   if (!state.passAndPlay || !state.lastResult) return;
+  const match = state.passAndPlay;
+  const nextPlayer: PlayerId = match.currentRoundActivePlayer === 'p1' ? 'p2' : 'p1';
   gameStore.set({
     ...state,
     screen: 'passAndPlayInterlude',
     passAndPlay: {
-      ...state.passAndPlay,
+      ...match,
       currentRoundFirstResult: state.lastResult,
+      currentRoundActivePlayer: nextPlayer,
     },
   });
 }
 
-/** Interlude tap → second player's turn begins (same pattern). */
-export async function startNextPlayerTurn(): Promise<void> {
+/**
+ * Interlude tap → begin the active player's turn. Used for both the
+ * round-start interlude (after Next Round, no score-to-beat) and the
+ * within-round interlude (after first player's Pass, with score-to-beat).
+ */
+export async function beginActivePlayerTurn(): Promise<void> {
   const state = gameStore.get();
   if (!state.passAndPlay) return;
   const match = state.passAndPlay;
-  const nextPlayer: PlayerId = match.currentRoundFirstPlayer === 'p1' ? 'p2' : 'p1';
-  const nextInstrument =
-    nextPlayer === 'p1' ? match.config.p1Instrument : match.config.p2Instrument;
-  // Fresh groove index so the second player gets their own instrument's
-  // groove rather than inheriting the first player's.
-  const nextGrooveIdx = pickGrooveIndex(nextInstrument);
+  const active = match.currentRoundActivePlayer;
+  const instrument = active === 'p1' ? match.config.p1Instrument : match.config.p2Instrument;
+  // Fresh groove index per player so each hears their own instrument's groove.
+  const grooveIdx = pickGrooveIndex(instrument);
 
   kickAudioSync();
   const eng = await ensureAudioEngine();
 
   gameStore.set({
     ...state,
-    passAndPlay: {
-      ...match,
-      currentRoundActivePlayer: nextPlayer,
-      currentRoundGrooveIdx: nextGrooveIdx,
-    },
+    passAndPlay: { ...match, currentRoundGrooveIdx: grooveIdx },
   });
 
   await beginRound(
@@ -763,9 +764,9 @@ export async function startNextPlayerTurn(): Promise<void> {
     match.currentRoundDifficulty,
     false,
     false,
-    nextGrooveIdx,
+    grooveIdx,
     undefined,
-    overrideFor(match.config, nextPlayer),
+    overrideFor(match.config, active),
   );
 }
 
@@ -812,9 +813,11 @@ export function endPassAndPlayRound(): void {
   });
 }
 
-/** From the round-summary screen, advance to either the next round or
- * the game-over screen (clinched or all 10 rounds played). */
-export async function advancePassAndPlayRound(): Promise<void> {
+/** From the round-summary screen, advance to either the next round
+ * (set up state and route to the round-start interlude so the player
+ * sees whose turn it is before the music kicks in) or the game-over
+ * screen (clinched or all 10 rounds played). */
+export function advancePassAndPlayRound(): void {
   const state = gameStore.get();
   if (!state.passAndPlay) return;
   const match = state.passAndPlay;
@@ -829,38 +832,21 @@ export async function advancePassAndPlayRound(): Promise<void> {
   const nextFirstPlayer: PlayerId = match.currentRoundFirstPlayer === 'p1' ? 'p2' : 'p1';
   const nextDifficulty = resolveDifficulty(match.config);
   const nextPattern = generatePattern(nextDifficulty, rngFromRandom());
-  const nextInstrument =
-    nextFirstPlayer === 'p1' ? match.config.p1Instrument : match.config.p2Instrument;
-  const nextGrooveIdx = pickGrooveIndex(nextInstrument);
-
-  kickAudioSync();
-  const eng = await ensureAudioEngine();
 
   gameStore.set({
     ...state,
+    screen: 'passAndPlayInterlude',
     lastResult: null,
     passAndPlay: {
       ...match,
       currentRoundIndex: nextRoundIndex,
       currentRoundDifficulty: nextDifficulty,
       currentRoundPattern: nextPattern,
-      currentRoundGrooveIdx: nextGrooveIdx,
       currentRoundFirstPlayer: nextFirstPlayer,
       currentRoundActivePlayer: nextFirstPlayer,
       currentRoundFirstResult: null,
     },
   });
-
-  await beginRound(
-    eng.ctx,
-    nextPattern,
-    nextDifficulty,
-    false,
-    false,
-    nextGrooveIdx,
-    undefined,
-    overrideFor(match.config, nextFirstPlayer),
-  );
 }
 
 /** Exit the in-progress match and return home. Discards all match state. */

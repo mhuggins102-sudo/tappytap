@@ -87,6 +87,13 @@ export function ScoreScreen({ state }: Props) {
           result={result}
           corrected={corrected}
           grooveIdx={state.lastGrooveIdx ?? 0}
+          instrument={
+            state.passAndPlay
+              ? state.passAndPlay.currentRoundActivePlayer === 'p1'
+                ? state.passAndPlay.config.p1Instrument
+                : state.passAndPlay.config.p2Instrument
+              : undefined
+          }
         />
       )}
 

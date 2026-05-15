@@ -184,17 +184,6 @@ button {
   font-size: 13px;
 }
 
-.btn--daily {
-  border-color: rgba(25, 211, 162, 0.5);
-  color: var(--accent-2);
-  margin-top: 4px;
-}
-
-.btn--daily.btn--done {
-  border-color: rgba(255, 255, 255, 0.12);
-  color: var(--fg-dim);
-}
-
 .toggle {
   appearance: none;
   display: inline-flex;
@@ -249,7 +238,13 @@ button {
   cursor: not-allowed;
 }
 
-.solo-section {
+/* Picker screen narrows the cards so they don't sprawl on wide
+   viewports — cards felt unbalanced at the default 560px. */
+.screen--picker {
+  max-width: 380px;
+}
+
+.mode-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -257,7 +252,7 @@ button {
   position: relative;
 }
 
-.solo-section__title {
+.mode-section__title {
   margin: 0;
   font-size: 11px;
   font-weight: 700;
@@ -287,7 +282,9 @@ button {
   background: var(--bg-elev);
   border-radius: var(--radius);
   padding: 10px 14px;
-  padding-right: 38px;
+  /* Reserve the right 48px for the info-button hit zone so a near-miss
+     tap on the "i" doesn't start a game. */
+  padding-right: 52px;
   text-align: left;
   display: flex;
   flex-direction: row;
@@ -298,6 +295,11 @@ button {
   width: 100%;
   font: inherit;
   color: inherit;
+}
+
+.picker-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 @media (hover: hover) {
@@ -321,31 +323,45 @@ button {
   font-weight: 700;
 }
 
+/* Tap zone covers the right edge of the card so a near-miss on the
+   "i" still hits the info button instead of falling through to the
+   card-start button. The visible icon is a smaller centered span. */
 .picker-card__info {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--fg-dim);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 48px;
+  background: transparent;
   border: none;
-  font-size: 12px;
-  font-weight: 700;
-  font-style: italic;
-  font-family: serif;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.picker-card__info-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--fg-dim);
+  font-size: 12px;
+  font-weight: 700;
+  font-style: italic;
+  font-family: serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
+  transition: background 120ms ease, color 120ms ease;
 }
 
 @media (hover: hover) {
-  .picker-card__info:hover {
-    background: rgba(255, 255, 255, 0.16);
+  .picker-card__info:hover .picker-card__info-icon {
+    background: rgba(255, 255, 255, 0.18);
     color: var(--fg);
   }
 }
@@ -375,22 +391,6 @@ button {
   color: var(--fg);
 }
 
-/* Pass and Play sits just below the Solo section as a distinct option —
-   not part of Solo. The accent tint visually separates it from the
-   gray-tinted Solo cards. */
-.btn--pass-and-play {
-  background: linear-gradient(135deg, rgba(25, 211, 162, 0.15), rgba(25, 211, 162, 0.04));
-  border-color: rgba(25, 211, 162, 0.45);
-  color: var(--accent-2);
-  margin-top: 2px;
-}
-
-@media (hover: hover) {
-  .btn--pass-and-play:not(:disabled):hover {
-    background: linear-gradient(135deg, rgba(25, 211, 162, 0.22), rgba(25, 211, 162, 0.08));
-    border-color: rgba(25, 211, 162, 0.7);
-  }
-}
 
 .picker-card__stats {
   flex: 0 0 auto;
@@ -1439,11 +1439,6 @@ button {
   letter-spacing: 0.08em;
 }
 
-.btn--secondary {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
 .rank-box {
   width: 100%;
   max-width: 360px;
@@ -1848,36 +1843,140 @@ button {
   background: var(--bg-elev);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius);
+  padding: 0;
+}
+
+.pp-summary__scoreboard-summary {
+  list-style: none;
+  cursor: pointer;
   padding: 10px 14px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 10px;
 }
 
-.pp-summary__scoreboard-row {
+.pp-summary__scoreboard-summary::-webkit-details-marker {
+  display: none;
+}
+
+.pp-summary__scoreboard-totals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pp-summary__scoreboard-cell {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 4px 0;
-}
-
-.pp-summary__scoreboard-row--tie {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  padding-top: 6px;
-  margin-top: 2px;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 10px 8px;
 }
 
 .pp-summary__scoreboard-name {
-  font-size: 13px;
+  font-size: 12px;
+  color: var(--fg-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pp-summary__scoreboard-wins {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.pp-summary__scoreboard-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11px;
   color: var(--fg-dim);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
-.pp-summary__scoreboard-wins {
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+.pp-summary__scoreboard-toggle-chevron {
+  display: inline-block;
+  transition: transform 200ms ease;
+}
+
+.pp-summary__scoreboard[open] .pp-summary__scoreboard-toggle-chevron {
+  transform: rotate(180deg);
+}
+
+.pp-summary__scoreboard[open] .pp-summary__scoreboard-toggle-text::before {
+  content: 'Hide ';
+}
+
+.pp-summary__history {
+  list-style: none;
+  margin: 0;
+  padding: 4px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pp-summary__history-row {
+  display: grid;
+  grid-template-columns: 32px 1fr auto 1fr 56px;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 4px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pp-summary__history-row--tie {
+  opacity: 0.7;
+}
+
+.pp-summary__history-idx {
+  color: var(--fg-dim);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.pp-summary__history-score {
+  text-align: center;
+}
+
+.pp-summary__history-score--win {
+  color: var(--accent-2);
+  font-weight: 700;
+}
+
+.pp-summary__history-mid {
+  color: var(--fg-dim);
+  font-size: 11px;
+}
+
+.pp-summary__history-diff {
+  font-size: 10px;
+  color: var(--fg-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: right;
+}
+
+.pp-summary__history-tie-note {
+  padding: 6px 14px 12px;
+  font-size: 11px;
+  color: var(--fg-dim);
+  text-align: center;
 }
 
 .pp-summary__actions {
