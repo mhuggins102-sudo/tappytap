@@ -6,7 +6,10 @@ import { GameScreen } from './components/GameScreen';
 import { ScoreScreen } from './components/ScoreScreen';
 import { DailyChallenge } from './components/DailyChallenge';
 import { DailyArchive } from './components/DailyArchive';
-import { PassAndPlayPlaceholder } from './components/PassAndPlayPlaceholder';
+import { PassAndPlaySetup } from './components/PassAndPlaySetup';
+import { PassAndPlayInterlude } from './components/PassAndPlayInterlude';
+import { PassAndPlayRoundSummary } from './components/PassAndPlayRoundSummary';
+import { PassAndPlayGameOver } from './components/PassAndPlayGameOver';
 import { loadSettings, SETTINGS_CHANGE_EVENT } from './lib/storage';
 
 export function App() {
@@ -43,10 +46,10 @@ export function App() {
         {state.screen === 'score' && <ScoreScreen state={state} />}
         {state.screen === 'daily' && <DailyChallenge state={state} />}
         {state.screen === 'archive' && <DailyArchive />}
-        {(state.screen === 'passAndPlaySetup' ||
-          state.screen === 'passAndPlayInterlude' ||
-          state.screen === 'passAndPlayRoundSummary' ||
-          state.screen === 'passAndPlayGameOver') && <PassAndPlayPlaceholder />}
+        {state.screen === 'passAndPlaySetup' && <PassAndPlaySetup />}
+        {state.screen === 'passAndPlayInterlude' && <PassAndPlayInterlude state={state} />}
+        {state.screen === 'passAndPlayRoundSummary' && <PassAndPlayRoundSummary state={state} />}
+        {state.screen === 'passAndPlayGameOver' && <PassAndPlayGameOver state={state} />}
       </div>
       <footer className="footer">tappytap · a tiny rhythm game</footer>
     </div>

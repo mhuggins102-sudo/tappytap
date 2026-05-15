@@ -26,12 +26,24 @@ export function GameScreen({ state }: Props) {
     (phase.kind === 'listening' ||
       (phase.kind === 'echoing' && phase.echoStartTime === null));
 
+  // Pass-and-Play uses the meta chip to surface who's playing and how far
+  // along the match is — far more informative than the difficulty alone
+  // when two players are sharing one device.
+  const chipText = (() => {
+    if (state.passAndPlay) {
+      const m = state.passAndPlay;
+      const name = m.currentRoundActivePlayer === 'p1' ? m.config.p1Name : m.config.p2Name;
+      return `${name} · R${m.currentRoundIndex + 1}/10 · ${m.currentRoundDifficulty}`;
+    }
+    if (state.isDailyChallenge) return 'Daily';
+    if (state.isPractice) return 'Practice';
+    return state.difficulty;
+  })();
+
   return (
     <div className="screen screen--game">
       <div className="game-meta">
-        <span className="game-meta__chip">
-          {state.isDailyChallenge ? 'Daily' : state.isPractice ? 'Practice' : state.difficulty}
-        </span>
+        <span className="game-meta__chip">{chipText}</span>
         <span className="game-meta__phase">{subtitleFor(phase)}</span>
       </div>
       {showPractice && phase.kind === 'echoing' && <PracticeOverlay phase={phase} />}

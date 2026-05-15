@@ -78,8 +78,6 @@ export function DifficultyPicker() {
         className="btn btn--pass-and-play"
         type="button"
         onClick={() => goToPassAndPlaySetup()}
-        disabled={practiceMode}
-        title={practiceMode ? 'Disable Practice Mode to start Pass and Play' : undefined}
       >
         Pass and Play
       </button>

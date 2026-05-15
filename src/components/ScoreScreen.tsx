@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GameState } from '../game/stateMachine';
 import type { RoundResult } from '../patterns/types';
-import { goToArchiveScreen, goToPicker, playAgain, tryAgain } from '../game/gameLoop';
+import {
+  endPassAndPlayRound,
+  goToArchiveScreen,
+  goToPicker,
+  passToNextPlayer,
+  playAgain,
+  tryAgain,
+} from '../game/gameLoop';
 import { loadHighScores, loadDailyEntry, MAX_DAILY_ATTEMPTS } from '../lib/storage';
 import { todayUtcDateString } from '../patterns/daily';
 import { shareDailyResult } from '../lib/share';
@@ -97,6 +104,16 @@ export function ScoreScreen({ state }: Props) {
             )}
           </div>
         )}
+        {state.passAndPlay && (
+          <div className="score-headline__badge score-headline__badge--pp">
+            {(() => {
+              const m = state.passAndPlay;
+              const activeName =
+                m.currentRoundActivePlayer === 'p1' ? m.config.p1Name : m.config.p2Name;
+              return `${activeName} · Round ${m.currentRoundIndex + 1} of 10`;
+            })()}
+          </div>
+        )}
         {state.isPractice && <div className="score-headline__badge score-headline__badge--practice">Practice — not saved</div>}
         {state.isReplay && !state.isPractice && (
           <div className="score-headline__badge score-headline__badge--practice">Replay — not saved</div>
@@ -117,7 +134,10 @@ export function ScoreScreen({ state }: Props) {
       )}
 
       <div className="score-actions">
-        {!state.isDailyChallenge && (
+        {state.passAndPlay && (
+          <PassAndPlayScoreActions state={state} />
+        )}
+        {!state.passAndPlay && !state.isDailyChallenge && (
           <>
             <button className="btn btn--primary" type="button" onClick={tryAgain}>
               Retry
@@ -130,7 +150,7 @@ export function ScoreScreen({ state }: Props) {
             </button>
           </>
         )}
-        {state.isDailyChallenge && (
+        {!state.passAndPlay && state.isDailyChallenge && (
           <>
             {canRetryDaily && (
               <button className="btn btn--primary" type="button" onClick={tryAgain}>
@@ -149,6 +169,30 @@ export function ScoreScreen({ state }: Props) {
         )}
       </div>
     </div>
+  );
+}
+
+/** Action buttons swapped in on the score screen when Pass-and-Play is
+ * active. Player 1's turn → "Pass to <P2>". Player 2's turn → "End
+ * round" (which routes to the round-summary screen). */
+function PassAndPlayScoreActions({ state }: { state: GameState }) {
+  const match = state.passAndPlay;
+  if (!match) return null;
+  const activeIsFirst = match.currentRoundActivePlayer === match.currentRoundFirstPlayer;
+  const otherPlayer = match.currentRoundActivePlayer === 'p1' ? 'p2' : 'p1';
+  const otherName = otherPlayer === 'p1' ? match.config.p1Name : match.config.p2Name;
+
+  if (activeIsFirst) {
+    return (
+      <button className="btn btn--primary" type="button" onClick={passToNextPlayer}>
+        Pass to {otherName}
+      </button>
+    );
+  }
+  return (
+    <button className="btn btn--primary" type="button" onClick={endPassAndPlayRound}>
+      End round
+    </button>
   );
 }
 
