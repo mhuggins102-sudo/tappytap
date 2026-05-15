@@ -132,6 +132,20 @@ export function goToArchiveScreen(): void {
   });
 }
 
+export function goToPassAndPlaySetup(): void {
+  clearTimers();
+  teardownCapture();
+  gameStore.set({
+    ...gameStore.get(),
+    screen: 'passAndPlaySetup',
+    isDailyChallenge: false,
+    dailyDateStr: null,
+    phase: { kind: 'idle' },
+    dailyImprovedOnRetry: false,
+    dailyPreviousScore: null,
+  });
+}
+
 export async function dismissStart(): Promise<void> {
   await ensureAudioEngine();
   gameStore.set({ ...gameStore.get(), screen: 'picker' });

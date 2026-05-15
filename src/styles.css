@@ -249,11 +249,36 @@ button {
   cursor: not-allowed;
 }
 
+.solo-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  position: relative;
+}
+
+.solo-section__title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--fg-dim);
+  padding: 0 4px;
+}
+
 .picker-grid {
   display: flex;
   flex-direction: column;
   gap: 8px;
   width: 100%;
+}
+
+/* Wrapper so the info "i" button can be a sibling of the picker-card —
+   otherwise a clickable card would have a nested button. */
+.picker-card-wrapper {
+  position: relative;
+  display: block;
 }
 
 .picker-card {
@@ -262,6 +287,7 @@ button {
   background: var(--bg-elev);
   border-radius: var(--radius);
   padding: 10px 14px;
+  padding-right: 38px;
   text-align: left;
   display: flex;
   flex-direction: row;
@@ -269,6 +295,9 @@ button {
   gap: 12px;
   cursor: pointer;
   transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+  width: 100%;
+  font: inherit;
+  color: inherit;
 }
 
 @media (hover: hover) {
@@ -292,16 +321,75 @@ button {
   font-weight: 700;
 }
 
-.picker-card__blurb {
+.picker-card__info {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
   color: var(--fg-dim);
+  border: none;
   font-size: 12px;
-  /* Each blurb supplies an explicit \n so the two lines split at a
-     readable spot; pre-line honors that newline while still wrapping
-     long lines if the viewport is very narrow. The min-height reserves
-     2 lines of vertical space so all three cards stay equal height. */
-  white-space: pre-line;
-  line-height: 1.3;
-  min-height: 2.6em;
+  font-weight: 700;
+  font-style: italic;
+  font-family: serif;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+
+@media (hover: hover) {
+  .picker-card__info:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: var(--fg);
+  }
+}
+
+.picker-card__popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--bg-elev);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--fg);
+  text-align: left;
+  z-index: 20;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.picker-card__popover-title {
+  font-weight: 700;
+  color: var(--fg);
+}
+
+/* Pass and Play sits just below the Solo section as a distinct option —
+   not part of Solo. The accent tint visually separates it from the
+   gray-tinted Solo cards. */
+.btn--pass-and-play {
+  background: linear-gradient(135deg, rgba(25, 211, 162, 0.15), rgba(25, 211, 162, 0.04));
+  border-color: rgba(25, 211, 162, 0.45);
+  color: var(--accent-2);
+  margin-top: 2px;
+}
+
+@media (hover: hover) {
+  .btn--pass-and-play:not(:disabled):hover {
+    background: linear-gradient(135deg, rgba(25, 211, 162, 0.22), rgba(25, 211, 162, 0.08));
+    border-color: rgba(25, 211, 162, 0.7);
+  }
 }
 
 .picker-card__stats {

@@ -6,6 +6,7 @@ import { GameScreen } from './components/GameScreen';
 import { ScoreScreen } from './components/ScoreScreen';
 import { DailyChallenge } from './components/DailyChallenge';
 import { DailyArchive } from './components/DailyArchive';
+import { PassAndPlayPlaceholder } from './components/PassAndPlayPlaceholder';
 import { loadSettings, SETTINGS_CHANGE_EVENT } from './lib/storage';
 
 export function App() {
@@ -42,6 +43,10 @@ export function App() {
         {state.screen === 'score' && <ScoreScreen state={state} />}
         {state.screen === 'daily' && <DailyChallenge state={state} />}
         {state.screen === 'archive' && <DailyArchive />}
+        {(state.screen === 'passAndPlaySetup' ||
+          state.screen === 'passAndPlayInterlude' ||
+          state.screen === 'passAndPlayRoundSummary' ||
+          state.screen === 'passAndPlayGameOver') && <PassAndPlayPlaceholder />}
       </div>
       <footer className="footer">tappytap · a tiny rhythm game</footer>
     </div>

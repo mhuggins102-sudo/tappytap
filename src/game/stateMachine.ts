@@ -1,6 +1,16 @@
 import type { Difficulty, Judgment, Pattern, RoundResult } from '../patterns/types';
 
-export type Screen = 'start' | 'picker' | 'game' | 'score' | 'daily' | 'archive';
+export type Screen =
+  | 'start'
+  | 'picker'
+  | 'game'
+  | 'score'
+  | 'daily'
+  | 'archive'
+  | 'passAndPlaySetup'
+  | 'passAndPlayInterlude'
+  | 'passAndPlayRoundSummary'
+  | 'passAndPlayGameOver';
 
 export interface TapFlash {
   judgment: Judgment;
