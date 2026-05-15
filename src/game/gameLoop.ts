@@ -677,14 +677,17 @@ function checkPassAndPlayClinch(match: PassAndPlayMatch): PlayerId | null {
   return null;
 }
 
-/** Kick off a fresh Pass-and-Play match: generate round-1 pattern, set
- * up match state, hand off to Player 1's turn. */
+/** Kick off a fresh Pass-and-Play match. Picks the round-1 first player
+ * at random (alternation across subsequent rounds is handled by
+ * advancePassAndPlayRound). Routes to the interlude so the first
+ * player sees whose turn it is before the music kicks in — same
+ * "your turn" announcement every other round gets. */
 export async function startPassAndPlayMatch(config: PassAndPlayConfig): Promise<void> {
   kickAudioSync();
-  const eng = await ensureAudioEngine();
+  await ensureAudioEngine();
   const difficulty = resolveDifficulty(config);
   const pattern = generatePattern(difficulty, rngFromRandom());
-  const grooveIdx = pickGrooveIndex(config.p1Instrument);
+  const firstPlayer: PlayerId = Math.random() < 0.5 ? 'p1' : 'p2';
 
   const match: PassAndPlayMatch = {
     config,
@@ -695,24 +698,20 @@ export async function startPassAndPlayMatch(config: PassAndPlayConfig): Promise<
     currentRoundIndex: 0,
     currentRoundDifficulty: difficulty,
     currentRoundPattern: pattern,
-    currentRoundGrooveIdx: grooveIdx,
-    currentRoundFirstPlayer: 'p1',
-    currentRoundActivePlayer: 'p1',
+    // Groove index is recomputed at the start of each player's turn
+    // (beginActivePlayerTurn) so the interlude tap is what locks it in.
+    currentRoundGrooveIdx: 0,
+    currentRoundFirstPlayer: firstPlayer,
+    currentRoundActivePlayer: firstPlayer,
     currentRoundFirstResult: null,
   };
 
-  gameStore.set({ ...gameStore.get(), passAndPlay: match, lastResult: null });
-
-  await beginRound(
-    eng.ctx,
-    pattern,
-    difficulty,
-    false,
-    false,
-    grooveIdx,
-    undefined,
-    overrideFor(config, 'p1'),
-  );
+  gameStore.set({
+    ...gameStore.get(),
+    screen: 'passAndPlayInterlude',
+    passAndPlay: match,
+    lastResult: null,
+  });
 }
 
 /**

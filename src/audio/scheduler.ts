@@ -287,16 +287,17 @@ export function schedulePattern(
 }
 
 /**
- * Play a fixed list of tap times back through the player's current
- * instrument + groove. Used by the "Play You" button on the score
- * screen so players can hear their own performance (either raw or
- * tempo-corrected, depending on what the caller passes in).
+ * Play a fixed list of tap times back through the current sound theme.
+ * When theme is 'groove', uses the supplied instrument + groove index
+ * (matching how the round was played). When theme is 'tones', plays
+ * plain clicks at the same times.
  *
  * Resets the master output first so back-to-back presses don't stack
  * playbacks on top of each other.
  */
 export async function playTapSequence(
   taps: number[],
+  theme: SoundTheme,
   instrument: Instrument,
   grooveIdx: number,
 ): Promise<void> {
@@ -310,7 +311,11 @@ export async function playTapSequence(
     const leadIn = 0.1;
     const start = ctx.currentTime + leadIn;
     for (let i = 0; i < taps.length; i++) {
-      scheduleGrooveHit(ctx, start + taps[i], instrument, grooveIdx, i);
+      if (theme === 'groove') {
+        scheduleGrooveHit(ctx, start + taps[i], instrument, grooveIdx, i);
+      } else {
+        scheduleClick(ctx, start + taps[i]);
+      }
     }
   } catch {
     // Audio context may not be available; swallow.

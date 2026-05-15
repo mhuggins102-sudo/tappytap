@@ -94,6 +94,13 @@ export function ScoreScreen({ state }: Props) {
                 : state.passAndPlay.config.p2Instrument
               : undefined
           }
+          soundTheme={
+            state.passAndPlay
+              ? state.passAndPlay.config.grooveSounds
+                ? 'groove'
+                : 'tones'
+              : undefined
+          }
         />
       )}
 
